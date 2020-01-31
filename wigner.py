@@ -13,9 +13,8 @@ from numba import jit, int32
 def _tri_ravel(l, m1, m2):
     # Ravel indices for the 'stack of triangles' format.
     # m1 must be >= m2
-    if m1 < m2 or m1 > l or m2 > l: 
+    if m1 < m2 or m1 > l or m2 > l:
         raise ValueError("Invalid indices")
-        #raise ValueError('Invalid indices: {}, {}, {}'.format(l,m1,m2)) 
     base = l * (l + 1) * (l+2) // 6
     offset = (l - m1)*(l + 3 + m1) // 2 + m2
     ind = base + offset 
@@ -81,13 +80,19 @@ class dMat(object):
         # symmetry relations for non-stored elements.
 
         (l, m1, m2) = index
-        fac = 1.0
-        # flip negatives
-        if m1 < 0:
-            fac *= (-1)**(l - index[2])
+        (_, _m1, _m2) = index
+
+        fac = (-1)**(_m2 - _m1)     # For sign convention of the SSHT paper
+
+        if _m1 < 0 and _m2 < 0:
+            fac *= (-1)**(m1 - m2)
             m1 *= -1
-        if m2 < 0:
-            fac *= (-1)**(l - index[1])
+            m2 *= -1
+        elif _m1 < 0 and _m2 >= 0:
+            fac *= (-1)**(l - _m2)
+            m1 *= -1
+        elif _m1 >= 0 and _m2 < 0:
+            fac *= (-1)**(l + _m1)
             m2 *= -1
 
         # reverse if wrong order
@@ -106,41 +111,34 @@ class dMat(object):
         self._arr[ind] = value
 
 
-#TODO  Now -- Define the spherical harmonic transform!
-#       > I've been able to compile the python wrapper on ssht (it's not in the path. Look to the .so file in the ssht dir.
-#       > Can do comparable transforms here and there and compare.
-
-
 ## TODO Move this test stuff to a different file.
 
 
-# Verify against another package
 
-##import quaternion
-##import spherical_functions as sf
-##
-##lmax = 40 
-##dmat = dMat(lmax)
-##import IPython; IPython.embed()
-##import sys; sys.exit()
-##dmat.eval()
-##
-##R = quaternion.from_euler_angles(0, np.pi/2., 0)
-##for el in range(0,lmax+1):
-##    for m1 in range(-el, el):
-##        for m2 in range(-el, el):
-##            sfval = sf.Wigner_D_element(R, el, m1, m2)
-##            # These lines -- confirm the symmetry relations
-##            #print(np.isclose(sfval, sf.Wigner_D_element(R, el, -m1, m2) * (-1)**(el- m2)))
-##            #print(np.isclose(sfval, sf.Wigner_D_element(R, el, -m1, -m2) * (-1)**(m1- m2)))
-##            #print(np.isclose(sfval, sf.Wigner_D_element(R, el, m1, -m2) * (-1)**(el- m1)))
-##            check = np.isclose(sfval.real, dmat[el, m1, m2])
-##            try:
-##                assert check
-##            except AssertionError:
-##                import IPython; IPython.embed()
-##                import sys; sys.exit()
-##            assert np.isclose(sfval.imag, 0)
-##
+if __name__ == '__main__':
+    import quaternion
+    import spherical_functions as sf
+
+    lmax = 20
+    dmat = dMat(lmax)
+
+    R = quaternion.from_euler_angles(0, -np.pi/2., 0)
+    for el in range(0, lmax+1):
+        for m1 in range(-el, el):
+            for m2 in range(-el, el):
+                sfval = sf.Wigner_D_element(R, el, m1, m2)
+                # These lines -- confirm the symmetry relations
+                #print(np.isclose(sfval, sf.Wigner_D_element(R, el, -m1, m2) * (-1)**(el- m2)))
+                #print(np.isclose(sfval, sf.Wigner_D_element(R, el, -m1, -m2) * (-1)**(m1- m2)))
+                #print(np.isclose(sfval, sf.Wigner_D_element(R, el, m1, -m2) * (-1)**(el- m1)))
+                check = np.isclose(sfval.real, dmat[el, m1, m2], atol=1e-6)
+                try:
+                    assert check
+                except AssertionError:
+                    import IPython; IPython.embed()
+                    import sys; sys.exit()
+                assert np.isclose(sfval.imag, 0)
+
+## Have also verified these against ssht.
 #import IPython; IPython.embed()
 #import sys; sys.exit()
