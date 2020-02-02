@@ -6,19 +6,21 @@ from scipy.special import sph_harm
 import pylab as pl
 
 s = 0   # Spin
-lmax = 10   # Maximum el
+lmax = 20   # Maximum el
 Nt = 701   # Number of samples in theta (must be odd)
 Nf = 701 # Samples in phi
+Nf = 2*lmax-1
+Nt = lmax
 
 # Define samples
-dth = np.pi/Nt
+dth = np.pi/(2*Nt-1)
 theta = np.linspace(dth, np.pi, Nt, endpoint=True)
 phi = np.linspace(0, 2*np.pi, Nf, endpoint=False)
 
 # Data, shape (Nf , Nt)
 gtheta, gphi = np.meshgrid(theta, phi)
 dat = 10 * sph_harm(3,5, gphi, gtheta)
-dat += 10 * sph_harm(1,8, gphi, gtheta)
+#dat += 10 * sph_harm(1,8, gphi, gtheta)
 
 
 # First transform --- FFT phi to m, then zero pad or truncate to (2*lmax - 1)
@@ -34,6 +36,7 @@ Gm_th[:, Nt:] = ((-1.0)**(s + em) * Gm_th[:, 2*Nt-2 - np.arange(Nt, 2*Nt - 1)].T
 
 Fmm = np.fft.fft(Gm_th, axis=1) / (2* Nt - 1)
 Fmm = (Fmm.T * np.exp(-1j * em * dth)).T   # Phase offset (since thetas[0] != 0) *(only applies for ssht sampling)
+                                           # Must be multiplied along axis 1
 
 ## Truncate/zero-pad the m' axis, then convolve with weights over m'
 padFmm = resize_axis(Fmm, (2*lmax - 1), axis=1, mode='zero')
@@ -84,7 +87,7 @@ def ravel_lm(ind):
 flm = np.zeros((1+lmax)**2, dtype=complex)
 offset_m = lmax - 1
 for el in range(lmax + 1):
-    for m in range(-(el-1), el+1):
+    for m in range(-el, el+1):
         ind = unravel_lm(el, m)
         for mp in range(-el, el+1):
             flm[ind] += (-1)**(el+m) * np.sqrt((2*el + 1)/(4*np.pi)) * (1j)**(m+s) * wig_d[el, mp, m] * wig_d[el, -s, mp] * Gmm[m, mp]
