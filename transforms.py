@@ -1,10 +1,8 @@
 
 import numpy as np
-from scipy.special import sph_harm
 from wigner import dMat
 
 from utils import resize_axis
-
 
 
 # Structure:
@@ -13,20 +11,20 @@ from utils import resize_axis
 #   Function to provide appropriate sampling if transforming a function.
 
 
+def unravel_lm(el, m):
+    return el*(el + 1) + m
 
-def unravel_lm(l, m):
-    return l*(l + 1) +  m
 
 def ravel_lm(ind):
-    l = int(np.floor(np.sqrt(ind)))
-    m = ind - l * (l + 1)
+    el = int(np.floor(np.sqrt(ind)))
+    m = ind - el * (el + 1)
 
-    return l, m
+    return el, m
 
 
 def _theta_fft(Gm_th, thetas, lmax, lmin=0, s=0):
     """
-    Do transform over theta, using the approach in [SSHT authors].
+    Do transform over theta, using the approach in McEwen and Wiaux (2011).
     """
 
     Nt = thetas.size
@@ -41,7 +39,7 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, s=0):
 
     if thetas[0] > 0:
 #       Fmm = (Fmm.T *  np.exp(-1j * em * dth)).T
-        Fmm = (Fmm.T * np.exp(-1j * em * np.pi/(2*Nt -1))).T     # TODO -- Why is this correct?
+        Fmm = (Fmm.T * np.exp(-1j * em * np.pi/(2*Nt -1))).T
         # TODO Careful with this. If Fmm's axes are the same size the behavior is inconsistent.
 
     ## Truncate/zero-pad the m' axis, then convolve with weights over m'
@@ -104,6 +102,7 @@ def _do_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1, spi
     # Transform phi to m and pad/truncate.
     dm_th = np.fft.fft(dat, axis=0) / Nf
     dm_th = resize_axis(dm_th, (2*lmax - 1), mode='zero', axis=0)
+    # TODO Is a phase correction necessary for the phi transform?
 
     # Transform theta to m'.
     # If evenly-spaced in theta, can use an FFT.
@@ -119,13 +118,49 @@ def _do_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1, spi
     return flm 
 
 
-def _do_transform_nongrid(*args, **kwargs):
-    raise NotImplementedError("Non-grid sampling is not yet supported.")
+def _do_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
+    """
+    Forward transform. Assumes isolatitude samples with equal
+    spacing in phi on each ring.
+    """
+    # TODO -- write a separate function for healpix, taking advantage
+    #    of its regularity for grouping pixels into rings.
+
+    dat = dat.flatten()
+    phis = phis.flatten()
+    thetas = thetas.flatten()
+
+    un_thet, lat_ind = np.unique(thetas, return_inverse=True)
+    Nlats = un_thet.size
+
+    # phi to m, per ring
+    dm_th = np.zeros((2*lmax - 1, Nlats), dtype=complex)
+
+    for th_i, th in enumerate(un_thet):
+        ring = lat_ind == th_i
+        phi_i = phis[ring]
+        dat_i = dat[ring]
+
+        # TODO Is a phase correction necessary for the phi transform?
+        Nf = dat_i.size
+        dm_th[:, th_i] = resize_axis(np.fft.fft(dat_i)/Nf, (2*lmax - 1), mode='zero')
+
+
+    # theta to m'
+    dth = np.diff(un_thet)
+    if np.allclose(dth, dth[0]):
+        dmm = _theta_fft(dm_th, un_thet, lmax, lmin, spin)
+    else:
+        raise NotImplementedError("Non-equispaced latitudes are not yet supported.")
+
+    flm = _dmm_to_flm(dmm, lmax, spin)
+
+    return flm
 
 
 def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
     """
-    
+  
     """
 
     grid = True
@@ -151,11 +186,13 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
 
 
 if __name__ == '__main__':
-    
+    import pylab as pl
+    from scipy.special import sph_harm
+
     s = 0   # Spin
     lmax = 10   # Maximum el
     Nt = 701   # Number of samples in theta (must be odd)
-    Nf = 701 # Samples in phi
+    Nf = 401  # Samples in phi
 #    Nf = 2*lmax-1
 #    Nt = lmax
     
@@ -170,5 +207,5 @@ if __name__ == '__main__':
     dat += 11 * sph_harm(4,8, gphi, gtheta)
 
     #res = phi_fft(dat, phi, theta)
-    flm = forward_transform(dat, phi, theta, lmax)
+    flm = forward_transform(dat, gphi, gtheta, lmax)
     import IPython; IPython.embed()
