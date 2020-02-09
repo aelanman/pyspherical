@@ -1,6 +1,6 @@
 
 import numpy as np
-from wigner import dMat
+from wigner import DeltaMatrix
 
 from utils import resize_axis
 
@@ -75,7 +75,7 @@ def _dmm_to_flm(dmm, lmax, spin):
     ## TODO -- numba accelerate this.
 
     flm = np.zeros((1+lmax)**2, dtype=complex)
-    wig_d = dMat(lmax)
+    wig_d = DeltaMatrix(lmax)
 
     for el in range(lmax + 1):
         prefac = np.sqrt((2*el + 1)/(4*np.pi))
@@ -181,31 +181,3 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
 
     else:
         return _do_transform_nongrid(dat, phis, thetas, lmax, lmin, spin)
-
- 
-
-
-if __name__ == '__main__':
-    import pylab as pl
-    from scipy.special import sph_harm
-
-    s = 0   # Spin
-    lmax = 10   # Maximum el
-    Nt = 701   # Number of samples in theta (must be odd)
-    Nf = 401  # Samples in phi
-#    Nf = 2*lmax-1
-#    Nt = lmax
-    
-    # Define samples
-    dth = np.pi/(2*Nt-1)
-    theta = np.linspace(dth, np.pi, Nt, endpoint=True)
-    phi = np.linspace(0, 2*np.pi, Nf, endpoint=False)
-    
-    # Data, shape (Nf , Nt)
-    gtheta, gphi = np.meshgrid(theta, phi)
-    dat = 10 * sph_harm(3,5, gphi, gtheta)
-    dat += 11 * sph_harm(4,8, gphi, gtheta)
-
-    #res = phi_fft(dat, phi, theta)
-    flm = forward_transform(dat, gphi, gtheta, lmax)
-    import IPython; IPython.embed()
