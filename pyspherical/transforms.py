@@ -1,8 +1,8 @@
 
 import numpy as np
-from wigner import DeltaMatrix
 
-from utils import resize_axis
+from .wigner import DeltaMatrix
+from .utils import resize_axis, ravel_lm, unravel_lm
 
 
 # Structure:
@@ -10,16 +10,6 @@ from utils import resize_axis
 #   Wrapper that lets you select which method to use.
 #   Function to provide appropriate sampling if transforming a function.
 
-
-def unravel_lm(el, m):
-    return el*(el + 1) + m
-
-
-def ravel_lm(ind):
-    el = int(np.floor(np.sqrt(ind)))
-    m = ind - el * (el + 1)
-
-    return el, m
 
 
 def _theta_fft(Gm_th, thetas, lmax, lmin=0, s=0):
@@ -156,7 +146,6 @@ def _do_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
     flm = _dmm_to_flm(dmm, lmax, spin)
 
     return flm
-
 
 def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
     """

@@ -1,6 +1,8 @@
 
 import numpy as np
 
+from numba import jit, int32, types
+
 def resize_axis(arr, size, mode='zero', axis=0):
     """
     Resize an axis of the array.
@@ -69,20 +71,30 @@ def resize_axis(arr, size, mode='zero', axis=0):
 
     return new
 
-if __name__ == '__main__':
-    import sys
-    arr = np.arange(int(sys.argv[1]), dtype=int) + 1
-    #test = resize_axis(arr, int(sys.argv[2]), 'zero')
-    test = resize_axis(arr, int(sys.argv[2]), 'center')
-    print(test, test.shape, np.sum(test))
-#arr = np.repeat(np.arange(int(sys.argv[1]))[None, :], 3, axis=0)
-#test = resize_axis(arr, int(sys.argv[2]), axis=1)
-#print(test)
-#print(test.shape, arr.shape)
-#
-#N = int(sys.argv[1])
-#testarr = np.zeros((3, int(sys.argv[2])), dtype=int)
-#testarr[:, :(N-1)//2] = arr[:, :(N-1)//2]
-#testarr[:, -1:-(N-1)//2:-1] = arr[:, -1:-(N-1)//2:-1]
-#
-#import IPython; IPython.embed()
+
+## Index raveling/unraveling
+
+@jit(int32(int32,int32,int32), nopython=True)
+def tri_ravel(l, m1, m2):
+    # Ravel indices for the 'stack of triangles' ordering.
+    # m1 must be >= m2
+    if m1 < m2 or m1 > l or m2 > l:
+        raise ValueError("Invalid indices")
+    base = l * (l + 1) * (l+2) // 6
+    offset = (l - m1)*(l + 3 + m1) // 2 + m2
+    ind = base + offset 
+    return int(ind)
+
+
+@jit(int32(int32,int32), nopython=True)
+def unravel_lm(el, m):
+    return el*(el + 1) + m
+
+
+@jit(types.Tuple((int32,int32))(int32), nopython=True)
+def ravel_lm(ind):
+    el = int(np.floor(np.sqrt(ind)))
+    m = ind - el * (el + 1)
+
+    return el, m
+
