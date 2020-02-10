@@ -149,6 +149,12 @@ def _do_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
 
 def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
     """
+
+    TODO -- Credit the FFT-based transforms to:
+       Eqns 9 - 12
+      http://scripts.iucr.org/cgi-bin/paper?S0108767306017478
+       Ref 41 of "A novel sampling theorem on the sphere"
+
   
     """
 
