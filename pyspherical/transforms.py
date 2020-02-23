@@ -11,7 +11,6 @@ from .utils import resize_axis, ravel_lm, unravel_lm
 #   Function to provide appropriate sampling if transforming a function.
 
 
-
 def _theta_fft(Gm_th, thetas, lmax, lmin=0, s=0):
     """
     Do transform over theta, using the approach in McEwen and Wiaux (2011).
@@ -24,19 +23,21 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, s=0):
     Gm_th = np.pad(Gm_th, [(0,0), (0, Nt-1)],  mode='constant')
     em = np.fft.ifftshift(np.arange(-(lmax-1), lmax))
     Gm_th[:, Nt:] = ((-1.0)**(s + em) * Gm_th[:, 2*Nt-2 - np.arange(Nt, 2*Nt - 1)].T).T
-    
+
     Fmm = np.fft.fft(Gm_th, axis=1) / (2* Nt - 1)
 
-    if thetas[0] > 0:
-#       Fmm = (Fmm.T *  np.exp(-1j * em * dth)).T
-        Fmm = (Fmm.T * np.exp(-1j * em * np.pi/(2*Nt -1))).T
-        # TODO Careful with this. If Fmm's axes are the same size the behavior is inconsistent.
-
-    ## Truncate/zero-pad the m' axis, then convolve with weights over m'
+    ## Truncate/zero-pad the m' axis
     padFmm = resize_axis(Fmm, (2*lmax - 1), axis=1, mode='zero')
+
+    ## Apply phase offset, for thetas with nonzero origin.
+    if thetas[0] > 0:
+        padFmm = (padFmm * np.exp(-1j * em * np.pi/(2*Nt -1)))
+
+    # Convolve with weights over m'
+
+    ## Need to shift to zero-centered Fourier ordering for the convolutions.
     padFmm = np.fft.fftshift(padFmm, axes=1)
-    
-    ## Get the weights:
+
     def weight(em):
         if np.abs(em) == 1:
             return np.sign(em) * np.pi * 1j / 2.
@@ -65,15 +66,15 @@ def _dmm_to_flm(dmm, lmax, spin):
     ## TODO -- numba accelerate this.
 
     flm = np.zeros((1+lmax)**2, dtype=complex)
-    wig_d = DeltaMatrix(lmax)
+    wig_d = DeltaMatrix(lmax)   # TODO Replace this with the cached one.
 
     for el in range(lmax + 1):
         prefac = np.sqrt((2*el + 1)/(4*np.pi))
         for m in range(-el, el+1):
             ind = unravel_lm(el, m)
-            prefac2 = (-1)**(el+m) * (1j)**(m+s)
+            prefac2 = (-1)**(el+m) * (1j)**(m+spin)
             for mp in range(-el, el+1):
-                flm[ind] += prefac * prefac2 * wig_d[el, mp, m] * wig_d[el, -s, mp] * dmm[m, mp]
+                flm[ind] += prefac * prefac2 * wig_d[el, mp, m] * wig_d[el, -spin, mp] * dmm[m, mp]
 
     return flm
         
@@ -150,13 +151,13 @@ def _do_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
 def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
     """
 
-    TODO -- Credit the FFT-based transforms to:
-       Eqns 9 - 12
-      http://scripts.iucr.org/cgi-bin/paper?S0108767306017478
-       Ref 41 of "A novel sampling theorem on the sphere"
+    Transform sampled data to spin-weighted spherical harmonics.
 
-  
     """
+    # TODO -- Credit the FFT-based transforms to:
+    #   Eqns 9 - 12
+    #  http://scripts.iucr.org/cgi-bin/paper?S0108767306017478
+    #   Ref 41 of "A novel sampling theorem on the sphere"
 
     grid = True
     if dat.shape == (phis.size, thetas.size):
