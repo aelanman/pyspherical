@@ -1,7 +1,7 @@
 
 import numpy as np
 
-from .wigner import DeltaMatrix
+from .wigner import HarmonicFunction, DeltaMatrix
 from .utils import resize_axis, ravel_lm, unravel_lm
 
 
@@ -10,6 +10,11 @@ from .utils import resize_axis, ravel_lm, unravel_lm
 #   Wrapper that lets you select which method to use.
 #   Function to provide appropriate sampling if transforming a function.
 
+
+
+# -----------
+# Forward transform
+# -----------
 
 def _theta_fft(Gm_th, thetas, lmax, lmin=0, s=0):
     """
@@ -65,10 +70,12 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, s=0):
 def _dmm_to_flm(dmm, lmax, spin):
     ## TODO -- numba accelerate this.
 
-    flm = np.zeros((1+lmax)**2, dtype=complex)
-    wig_d = DeltaMatrix(lmax)   # TODO Replace this with the cached one.
+    flm = np.zeros(lmax**2, dtype=complex)
+    HarmonicFunction._set_wigner(lmax+1)
+    wig_d = HarmonicFunction.current_dmat
+#    wig_d = DeltaMatrix(lmax)           # TODO in tests, it's unclear if caching the d-matrix really helps.
 
-    for el in range(lmax + 1):
+    for el in range(lmax):
         prefac = np.sqrt((2*el + 1)/(4*np.pi))
         for m in range(-el, el+1):
             ind = unravel_lm(el, m)
@@ -79,7 +86,7 @@ def _dmm_to_flm(dmm, lmax, spin):
     return flm
         
 
-def _do_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1, spin=0):
+def _do_fwd_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1, spin=0):
     """
     Do forward transform, assuming a regular grid in both theta and phi.
     """
@@ -93,7 +100,6 @@ def _do_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1, spi
     # Transform phi to m and pad/truncate.
     dm_th = np.fft.fft(dat, axis=0) / Nf
     dm_th = resize_axis(dm_th, (2*lmax - 1), mode='zero', axis=0)
-    # TODO Is a phase correction necessary for the phi transform?
 
     # Transform theta to m'.
     # If evenly-spaced in theta, can use an FFT.
@@ -103,13 +109,12 @@ def _do_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1, spi
         dmm = _theta_fft(dm_th, thetas, lmax, lmin, spin)
     else:
         raise NotImplementedError("Non-equispaced latitudes are not yet supported.")
-    
     flm = _dmm_to_flm(dmm, lmax, spin) 
 
     return flm 
 
 
-def _do_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
+def _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
     """
     Forward transform. Assumes isolatitude samples with equal
     spacing in phi on each ring.
@@ -132,7 +137,6 @@ def _do_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
         phi_i = phis[ring]
         dat_i = dat[ring]
 
-        # TODO Is a phase correction necessary for the phi transform?
         Nf = dat_i.size
         dm_th[:, th_i] = resize_axis(np.fft.fft(dat_i)/Nf, (2*lmax - 1), mode='zero')
 
@@ -173,7 +177,42 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
                          "\n\tthetas.shape = {}".format(str(dat.shape), str(phis.shape), str(thetas.shape)))
 
     if grid:
-        return _do_transform_on_grid(dat, phis, thetas, lmax, lmin, fax, tax, spin)
+        return _do_fwd_transform_on_grid(dat, phis, thetas, lmax, lmin, fax, tax, spin)
 
     else:
-        return _do_transform_nongrid(dat, phis, thetas, lmax, lmin, spin)
+        return _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin)
+
+
+## -----------
+## Inverse transform
+## -----------
+#
+#def inverse_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
+#    """
+#
+#    Evaluate spin-weighted spherical harmonic components to a sphere.
+#
+#    """
+#    # TODO -- Credit the FFT-based transforms to:
+#    #   Eqns 9 - 12
+#    #  http://scripts.iucr.org/cgi-bin/paper?S0108767306017478
+#    #   Ref 41 of "A novel sampling theorem on the sphere"
+#
+#    grid = True
+#    if dat.shape == (phis.size, thetas.size):
+#        fax, tax = 0, 1
+#    elif dat.shape == (thetas.size, phis.size):
+#        fax, tax = 1, 0
+#    elif dat.shape == thetas.shape == phis.shape:
+#        grid = False
+#    else:
+#        raise ValueError("Data shapes inconsistent:"
+#                         "\n\tdat.shape = {}"
+#                         "\n\tphis.shape = {}"
+#                         "\n\tthetas.shape = {}".format(str(dat.shape), str(phis.shape), str(thetas.shape)))
+#
+#    if grid:
+#        return _do_fwd_transform_on_grid(dat, phis, thetas, lmax, lmin, fax, tax, spin)
+#
+#    else:
+#        return _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin)

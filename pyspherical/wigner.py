@@ -129,6 +129,14 @@ class HarmonicFunction:
     current_dmat = None
 
     @classmethod
+    def _set_wigner(cls, lmax):
+        if (cls.current_dmat is None) and (lmax is not None):
+            cls.current_dmat = DeltaMatrix(lmax)
+        if (cls.current_dmat is None) or (cls.current_dmat.lmax < lmax):
+            cls.current_dmat = DeltaMatrix(lmax)
+
+
+    @classmethod
     def wigner_d(cls, el, m1, m2, theta, lmax=None):
         """
         Evaluate the Wigner-d function (little-d).
@@ -136,10 +144,9 @@ class HarmonicFunction:
         Caches values at pi/2.
         """
         theta = np.atleast_1d(theta)
-        if (cls.current_dmat is None) and (lmax is not None):
-            cls.current_dmat = DeltaMatrix(lmax)
-        if (cls.current_dmat is None) or (cls.current_dmat.lmax < el):
-            cls.current_dmat = DeltaMatrix(el)
+        if lmax is None:
+            lmax = el
+        cls._set_wigner(lmax)
 
         mp = np.arange(1, el + 1)
         exp_fac = np.exp(1j * mp[None, :] * theta[..., None])
