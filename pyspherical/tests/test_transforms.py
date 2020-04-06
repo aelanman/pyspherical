@@ -9,16 +9,14 @@ import pyspherical as pysh
 # Test transforms of sampled data.
 
 ## Tests to add:
-#   > Transform and inverse transform returns original.
+#   *> Transform and inverse transform returns original.
 #   *> Transform of a linear combo of spherical harmonics returns peaks in the right places.
 #   > Check with different samplings
-#   > Transform with higher spins.
+#   > Transforms with higher spins.
 
-@pytest.mark.parametrize('lmax', [50] * 10)
-def test_transform_mw_sampling(lmax):
-    # MW sampling:
-    #   (lmax) samples in theta
-    #   (2 * lmax - 1) in phi
+@pytest.fixture
+def mw_sum_of_harms():
+    lmax = 50
 
     Nt = lmax
     Nf = 2 * lmax - 1
@@ -32,9 +30,9 @@ def test_transform_mw_sampling(lmax):
 
     # Data
     Npeaks = 10
-    peak_els = np.random.choice(np.arange(0, lmax-1), Npeaks, replace=False)
+    peak_els = np.random.choice(np.arange(0, lmax - 1), Npeaks, replace=False)
 
-    peak_ems = np.array([np.random.randint(-el, el+1) for el in peak_els])
+    peak_ems = np.array([np.random.randint(-el, el + 1) for el in peak_els])
     peak_amps = np.random.uniform(10, 20, Npeaks)
 
     dat = np.zeros(gtheta.shape, dtype=complex)
@@ -48,26 +46,34 @@ def test_transform_mw_sampling(lmax):
         #    up to degree 2800.
         dat += peak_amps[ii] * sph_harm(em, el, gphi, gtheta)
 
-    flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=0, spin=0)
+    return dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps)
 
+
+def test_transform_mw_sampling(mw_sum_of_harms):
+    # MW sampling:
+    #   (lmax) samples in theta
+    #   (2 * lmax - 1) in phi
+
+    dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms
+    flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=0, spin=0)
+    Npeaks = len(peak_els)
     # Verify that the peaks are at the expected el, em.
     flm_srt = np.argsort(flm)
     peak_inds = flm_srt[-Npeaks:]
     lmtest = np.array([pysh.ravel_lm(ind) for ind in peak_inds])
-    assert set(lmtest[:,0]) == set(peak_els)
-    assert set(lmtest[:,1]) == set(peak_ems)
+    assert set(lmtest[:, 0]) == set(peak_els)
+    assert set(lmtest[:, 1]) == set(peak_ems)
     assert np.allclose(np.array(sorted(peak_amps)), flm[peak_inds].real, atol=1e-5)
 
     # Check that the remaining points are all near zero.
     assert np.allclose(flm[flm_srt[:-Npeaks]], 0.0, atol=1.0)
 
 
-@pytest.mark.parametrize('lmax', [50] * 10)
+@pytest.mark.parametrize('lmax', range(10, 50, 5))
 def test_transform_mw_sampling_monopole(lmax):
     # MW sampling:
     #   (lmax) samples in theta
     #   (2 * lmax - 1) in phi
-
     Nt = lmax
     Nf = 2 * lmax - 1
 
@@ -82,4 +88,29 @@ def test_transform_mw_sampling_monopole(lmax):
     dat = np.ones(gtheta.shape, dtype=float) * amp
 
     flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=0, spin=0)
-    assert np.isclose(flm[0], amp * np.sqrt(4*np.pi))
+    assert np.isclose(flm[0], amp * np.sqrt(4 * np.pi))
+
+
+def test_transform_mw_sampling_loop(mw_sum_of_harms):
+    # sphere -> flm -> sphere.
+
+    dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms
+
+    flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=0, spin=0)
+
+    res = pysh.inverse_transform(flm)
+
+    assert np.allclose(res, dat, atol=1e-5)
+
+    Nt = 50
+    Nf = 70
+
+    dat2 = pysh.inverse_transform(flm, Nt=Nt, Nf=Nf)
+
+    dth = np.pi / (2 * Nt - 1)
+    theta2 = np.linspace(dth, np.pi, Nt, endpoint=True)
+    phi2 = np.linspace(0, 2 * np.pi, Nf, endpoint=False)
+
+    flm2 = pysh.forward_transform(dat2, phi2, theta2, lmax)
+    res2 = pysh.inverse_transform(flm2, thetas=theta2, phis=phi2)
+    assert np.allclose(dat2, res2, atol=1e-5)
