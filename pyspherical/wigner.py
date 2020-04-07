@@ -1,4 +1,3 @@
-
 import numpy as np
 from numba import jit
 
@@ -12,7 +11,8 @@ def _dmat_eval(lmin, lmax, arr):
     # TODO -- Modify to use lmin --- What "prior steps" need to be stored?
     arr[0] = 1.0
     for el in range(1, lmax + 1):
-        dll0 = -np.sqrt((2 * el - 1) / float(2 * el)) * arr[tri_ravel(el - 1, el - 1, 0)]
+        dll0 = -np.sqrt((2 * el - 1) / float(2 * el)) * \
+            arr[tri_ravel(el - 1, el - 1, 0)]
         arr[tri_ravel(el, el, 0)] = dll0
         for m2 in range(0, el + 1):
             if m2 > 0:
@@ -21,10 +21,12 @@ def _dmat_eval(lmin, lmax, arr):
                 ) * arr[tri_ravel(el - 1, el - 1, m2 - 1)]
                 arr[tri_ravel(el, el, m2)] = dllm
             for m1 in range(el - 1, m2 - 1, -1):
-                fac1 = (2 * m2) / np.sqrt((el - m1) * (el + m1 + 1)) * arr[tri_ravel(el, m1 + 1, m2)]
+                fac1 = (2 * m2) / np.sqrt((el - m1) * (el + m1 + 1)) * \
+                    arr[tri_ravel(el, m1 + 1, m2)]
                 fac2 = 0.0
                 if (m1 + 2) <= el:
-                    fac2 = np.sqrt(((el - m1 - 1) * (el + m1 + 2)) / ((el - m1) * (el + m1 + 1))) * arr[tri_ravel(el, m1 + 2, m2)]
+                    fac2 = np.sqrt(((el - m1 - 1) * (el + m1 + 2)) / ((el - m1)
+                                                                      * (el + m1 + 1))) * arr[tri_ravel(el, m1 + 2, m2)]
                 arr[tri_ravel(el, m1, m2)] = fac1 - fac2
 
 
@@ -70,7 +72,7 @@ class DeltaMatrix:
 
 
     """
-    ## TODO
+    # TODO
     #       *Have shown that numba acceleration is helping.
     #       *Test against another package -- mathematica / spherical_functions
     #       Handling slices?
@@ -121,7 +123,8 @@ def _get_matrix_elements(el, m1, m2, arr, outarr):
 
     """
     for mi, mp in enumerate(range(0, el + 1)):
-        outarr[mi] = _access_element(el, mp, m1, arr) * _access_element(el, mp, m2, arr)
+        outarr[mi] = _access_element(
+            el, mp, m1, arr) * _access_element(el, mp, m2, arr)
 
 
 class HarmonicFunction:
@@ -134,7 +137,6 @@ class HarmonicFunction:
             cls.current_dmat = DeltaMatrix(lmax)
         if (cls.current_dmat is None) or (cls.current_dmat.lmax < lmax):
             cls.current_dmat = DeltaMatrix(lmax)
-
 
     @classmethod
     def wigner_d(cls, el, m1, m2, theta, lmax=None):
@@ -154,19 +156,18 @@ class HarmonicFunction:
         _get_matrix_elements(el, m1, m2, cls.current_dmat._arr, dmats)
 
         val = (1j) ** (m2 - m1) * (
-            np.sum((exp_fac + (-1)**(m1 + m2 - 2 * el) / exp_fac) * dmats[1:], axis=-1)
+            np.sum((exp_fac + (-1)**(m1 + m2 - 2 * el) / exp_fac)
+                   * dmats[1:], axis=-1)
             + dmats[0]
         )
         return val.squeeze()
 
     @classmethod
     def spin_spherical_harmonic(cls, el, em, spin, theta, phi, lmax=None):
-        """
-        Evaluate the spin-weighted spherical harmonic.
-        """
-
+        """Evaluate the spin-weighted spherical harmonic."""
         prefactor = (-1)**(spin) * np.sqrt((2 * el + 1) / (4 * np.pi))
-        ## TODO The following line should have a -1 in it, but
-        ## removing it is necessary to match scipy. What is going wrong?
+
+        # TODO The following line should have a -1 in it, but
+        # removing it is necessary to match scipy. What is going wrong?
         exp = np.exp(1j * em * phi)
         return prefactor * exp * cls.wigner_d(el, em, -1 * spin, theta, lmax=lmax)

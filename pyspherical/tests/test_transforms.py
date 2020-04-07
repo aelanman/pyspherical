@@ -8,7 +8,7 @@ import pyspherical as pysh
 
 # Test transforms of sampled data.
 
-## Tests to add:
+# Tests to add:
 #   *> Transform and inverse transform returns original.
 #   *> Transform of a linear combo of spherical harmonics returns peaks in the right places.
 #   > Check with different samplings
@@ -57,13 +57,15 @@ def test_transform_mw_sampling(mw_sum_of_harms):
     dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms
     flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=0, spin=0)
     Npeaks = len(peak_els)
+
     # Verify that the peaks are at the expected el, em.
     flm_srt = np.argsort(flm)
     peak_inds = flm_srt[-Npeaks:]
     lmtest = np.array([pysh.ravel_lm(ind) for ind in peak_inds])
     assert set(lmtest[:, 0]) == set(peak_els)
     assert set(lmtest[:, 1]) == set(peak_ems)
-    assert np.allclose(np.array(sorted(peak_amps)), flm[peak_inds].real, atol=1e-5)
+    assert np.allclose(np.array(sorted(peak_amps)),
+                       flm[peak_inds].real, atol=1e-5)
 
     # Check that the remaining points are all near zero.
     assert np.allclose(flm[flm_srt[:-Npeaks]], 0.0, atol=1.0)
@@ -114,3 +116,61 @@ def test_transform_mw_sampling_loop(mw_sum_of_harms):
     flm2 = pysh.forward_transform(dat2, phi2, theta2, lmax)
     res2 = pysh.inverse_transform(flm2, thetas=theta2, phis=phi2)
     assert np.allclose(dat2, res2, atol=1e-5)
+
+
+def test_loop_mw_nongrid(mw_sum_of_harms):
+    # sphere -> flm -> sphere
+    # But use meshgrid of points
+
+    dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms
+
+    gtheta, gphi = np.meshgrid(theta, phi)
+
+    flm = pysh.forward_transform(dat, gphi, gtheta, lmax, spin=0)
+
+    res = pysh.inverse_transform(flm, gphi, gtheta, lmax)
+
+    assert np.allclose(dat.flatten(), res, atol=1e-5)
+
+
+@pytest.mark.skip(reason="Unexplained deviation in this case. Needs work.")
+def test_loop_diffphi_nongrid():
+    # Make a sphere with different phi sampling on each latitude.
+    # Evaluate a function on the sphere and do the loop test.
+
+    lmax = 80
+
+    # Number of thetas (latitudes)
+    Nt = 81
+
+    # Number of phi samples at each latitude
+    Nf = [75] * 26 + [77] * 28 + [74] * 27
+
+    # Put an offset in phi at each latitude.
+    offsets = [np.random.uniform(0, np.pi / (nf)) for nf in Nf]
+    thetas, phis = [], []
+
+    dth = np.pi / (2 * Nt - 1)
+    base_theta = np.linspace(dth, np.pi, Nt, endpoint=True)
+
+    for ti, th, in enumerate(base_theta):
+        nf = Nf[ti]
+        thetas.extend([th] * nf)
+        cur_phi = (np.linspace(0, 2 * np.pi, nf) + offsets[ti]) % (2 * np.pi)
+        phis.extend(cur_phi.tolist())
+
+    # Evaluate a function on these points.
+    el = 17
+    em = 3
+    amp = 50
+
+    dat = amp * sph_harm(em, el, phis, thetas)
+
+    flm = pysh.forward_transform(dat, phis, thetas, lmax=lmax)
+    res = pysh.inverse_transform(flm, phis, thetas, lmax=lmax)
+
+    # There is a regular pattern to the remaining deviation between dat and res.
+    # The results shouldn't match up perfectly, because the sampling isn't exact and
+    # it is band-limited, but it's unclear how reversible this should be.
+    tol = 1.0
+    assert np.allclose(dat, res, atol=tol)

@@ -1,27 +1,26 @@
 
 import numpy as np
 
-from .wigner import HarmonicFunction, DeltaMatrix
-from .utils import resize_axis, ravel_lm, unravel_lm
+from .wigner import HarmonicFunction
+from .utils import resize_axis, unravel_lm
 
 # -----------
 # Forward transform
 # -----------
 
 
-def _theta_fft(Gm_th, thetas, lmax, lmin=0, s=0):
+def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
     """
     Do transform over theta, using the approach in McEwen and Wiaux (2011).
     """
 
     Nt = thetas.size
-    dth = thetas[1] - thetas[0]
 
     # Apply periodic extension in theta.
     Gm_th = np.pad(Gm_th, [(0, 0), (0, Nt - 1)], mode='constant')
     em = np.fft.ifftshift(np.arange(-(lmax - 1), lmax))
-    Gm_th[:, Nt:] = ((-1.0)**(s + em) * Gm_th[:, 2 * Nt -
-                                              2 - np.arange(Nt, 2 * Nt - 1)].T).T
+    Gm_th[:, Nt:] = ((-1.0)**(spin + em) * Gm_th[:, 2 * Nt
+                     - 2 - np.arange(Nt, 2 * Nt - 1)].T).T
 
     Fmm = np.fft.fft(Gm_th, axis=1) / (2 * Nt - 1)
 
@@ -68,9 +67,8 @@ def _dmm_to_flm(dmm, lmax, spin):
     flm = np.zeros(lmax**2, dtype=complex)
     HarmonicFunction._set_wigner(lmax + 1)
     wig_d = HarmonicFunction.current_dmat
-#    wig_d = DeltaMatrix(lmax)           # TODO in tests, it's unclear if caching the d-matrix really helps.
 
-    for el in range(lmax):
+    for el in range(spin, lmax):
         prefac = np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
             ind = unravel_lm(el, m)
@@ -123,15 +121,14 @@ def _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
     phis = phis.flatten()
     thetas = thetas.flatten()
 
-    un_thet, lat_ind = np.unique(thetas, return_inverse=True)
-    Nlats = un_thet.size
+    un_thetas, lat_ind = np.unique(thetas, return_inverse=True)
+    Nlats = un_thetas.size
 
     # phi to m, per ring
     dm_th = np.zeros((2 * lmax - 1, Nlats), dtype=complex)
 
-    for th_i, th in enumerate(un_thet):
+    for th_i, th in enumerate(un_thetas):
         ring = lat_ind == th_i
-        phi_i = phis[ring]
         dat_i = dat[ring]
 
         Nf = dat_i.size
@@ -139,9 +136,9 @@ def _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
             dat_i) / Nf, (2 * lmax - 1), mode='zero')
 
     # theta to m'
-    dth = np.diff(un_thet)
+    dth = np.diff(un_thetas)
     if np.allclose(dth, dth[0]):
-        dmm = _theta_fft(dm_th, un_thet, lmax, lmin, spin)
+        dmm = _theta_fft(dm_th, un_thetas, lmax, lmin, spin)
     else:
         raise NotImplementedError(
             "Non-equispaced latitudes are not yet supported.")
@@ -162,6 +159,8 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
     #  http://scripts.iucr.org/cgi-bin/paper?S0108767306017478
     #   Ref 41 of "A novel sampling theorem on the sphere"
 
+    phis = np.asarray(phis)
+    thetas = np.asarray(thetas)
     grid = True
     if dat.shape == (phis.size, thetas.size):
         fax, tax = 0, 1
@@ -252,7 +251,49 @@ def _do_inv_transform_on_grid(flm, phis, thetas, lmax, lmin=0, spin=0):
     return dat
 
 
-def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt=None, Nf=None):
+def _do_inv_transform_nongrid(flm, phis, thetas, lmax, lmin=0, spin=0):
+    """
+    Inverse transform. Assumes isolatitude samples with equal
+    spacing in phi on each ring.
+    """
+
+    phis = phis.flatten()
+    thetas = thetas.flatten()
+
+    Fmm = _flm_to_fmm(flm, lmax, spin)
+
+    un_thetas, lat_ind = np.unique(thetas, return_inverse=True)
+    Nlats = un_thetas.size
+
+    # Transform over theta
+    theta_is_equi = np.allclose(
+        un_thetas[1] - un_thetas[0], un_thetas[2:] - un_thetas[1:-1])
+
+    if theta_is_equi:
+        Fm_th = _inv_fft_thetas(
+            Fmm, lmax, spin, offset=un_thetas[0], Nt=Nlats
+        )
+    else:
+        raise NotImplementedError(
+            "Non-equispaced latitudes are not yet supported.")
+
+    # Transform m to phi, per ring.
+    #   Need to apply a phase offset if the 0th index is not at phi = 0
+
+    em = np.fft.ifftshift(np.arange(-(lmax - 1), lmax))
+    dat = np.zeros(phis.size, dtype=complex)
+    for th_i, th in enumerate(un_thetas):
+        ring = lat_ind == th_i
+        phi_i = np.sort(phis[ring])
+        Nf = phi_i.size
+        phase = np.exp(1j * em * phi_i[0])
+        ring_dat = phase * Fm_th[:, th_i]
+        dat[ring] = np.fft.ifft(resize_axis(ring_dat, Nf)) * Nf
+
+    return dat
+
+
+def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt=None, Nf=None, grid=None):
     """
     Evaluate spin-weighted spherical harmonic components to a sphere.
 
@@ -281,16 +322,23 @@ def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt
             Nf = 2 * lmax - 1
         phis = np.linspace(0, 2 * np.pi, Nf, endpoint=False)
 
+    phis = np.asarray(phis)
+    thetas = np.asarray(thetas)
+
     Nt = thetas.size
     Nf = phis.size
 
-    grid = True
-    if (phis.ndim > 1) or (thetas.ndim > 1):
-        grid = False
-        if not phis.shape == thetas.shape:
-            raise ValueError("Coordinate shapes inconsistent:"
-                             "\n\tphis.shape = {}"
-                             "\n\tthetas.shape = {}".format(str(phis.shape), str(thetas.shape)))
+    # Guess from coordinate shapes/sizes if they represent axes of a grid or
+    # fully cover the desired sampling.
+    if grid is None:
+        grid = True
+        if not np.unique(thetas).size == thetas.size:
+            grid = False
+            if not phis.shape == thetas.shape:
+                raise ValueError("It looks like the coordinates are non-grid, "
+                                 "but their shapes are inconsistent:"
+                                 "\n\tphis.shape = {}"
+                                 "\n\tthetas.shape = {}".format(str(phis.shape), str(thetas.shape)))
 
     if grid:
         return _do_inv_transform_on_grid(flm, phis, thetas, lmax, lmin, spin)

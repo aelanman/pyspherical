@@ -6,7 +6,7 @@ from scipy.special import sph_harm
 import pyspherical as pysh
 
 
-## Tests to add:
+# Tests to add:
 #   > Symmetry relations of delta matrices
 #   > Symmetries of wigner-d functions at different angles
 #   > Comparison against spherical_functions for l<32, if available
@@ -22,7 +22,7 @@ class TestSphHarm:
     def setup(self):
         Nt = 701   # Number of samples in theta (must be odd)
         Nf = 401  # Samples in phi
-
+        pysh.HarmonicFunction.current_dmat = None   # Reset current_dmat
         # Define samples
         dth = np.pi / (2 * Nt - 1)
         theta = np.linspace(dth, np.pi, Nt, endpoint=True)
@@ -39,7 +39,8 @@ class TestSphHarm:
         dat = sph_harm(em, el, self.gphi, self.gtheta)
 
         # Scipy includes Condon-Shortley phase def.
-        res = (-1)**em * pysh.HarmonicFunction.spin_spherical_harmonic(el, em, 0, self.gtheta, self.gphi, lmax=self.lmax)
+        res = (-1)**em * pysh.HarmonicFunction.spin_spherical_harmonic(el,
+                                                                       em, 0, self.gtheta, self.gphi, lmax=self.lmax)
 
         assert pysh.HarmonicFunction.current_dmat.lmax == self.lmax
         assert np.allclose(dat, res, atol=1e-4)
