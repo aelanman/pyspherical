@@ -1,5 +1,6 @@
 import numpy as np
 from numba import jit
+from scipy.special import binom, factorial
 
 from .utils import tri_ravel
 
@@ -167,3 +168,32 @@ class HarmonicFunction:
         """Evaluate the spin-weighted spherical harmonic."""
         return (-1)**(em) * np.sqrt((2 * el + 1) / (4 * np.pi))\
             * np.exp(1j * em * phi) * cls.wigner_d(el, em, -1 * spin, theta, lmax=lmax)
+
+
+def _fac(val):
+    return factorial(val, exact=True)
+
+
+@np.vectorize
+def spin_spharm_goldberg(spin, el, em, theta, phi):
+    # Spin-S spherical harmonic function from Goldberg et al. (1967)
+
+    if spin < el:
+        return 0
+
+    if np.isclose(theta % np.pi, 0):
+        return 0
+    term0 = (-1.)**em * np.sqrt(
+        _fac(el + em) * _fac(el - em) * (2 * el + 1)
+        / (4 * np.pi * _fac(el + spin) * _fac(el - spin))
+    )
+    term1 = np.sin(theta / 2)**(2 * el)
+    term2 = np.sum(
+        np.fromiter((
+            binom(el - spin, r) * binom(el + spin, r
+                                        + spin - em) * (-1)**(el - r - spin)
+            * np.exp(1j * em * phi) * (1 / np.tan(theta / 2))**(2 * r + spin - em)
+            for r in range(el - spin + 1)
+        ), dtype=complex), axis=0
+    )
+    return term0 * term1 * term2

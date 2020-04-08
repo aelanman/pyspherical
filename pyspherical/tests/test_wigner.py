@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from scipy.special import sph_harm, binom, factorial
+from scipy.special import sph_harm
 
 import pyspherical as pysh
 
@@ -17,29 +17,6 @@ def mw_sampling():
     phi = np.linspace(0, 2 * np.pi, Nf, endpoint=False)
 
     return theta, phi
-
-
-def fac(val):
-    return factorial(val, exact=True)
-
-
-def spin_spharm_goldberg(spin, el, em, theta, phi):
-    # Spin-S spherical harmonic function from Goldberg et al. (1967)
-
-    term0 = (-1)**em * np.sqrt(
-        fac(el + em) * fac(el - em) * (2 * el + 1)
-        / (4 * np.pi * fac(el + spin) * fac(el - spin))
-    )
-    term1 = np.sin(theta / 2)**(2 * el)
-    term2 = np.sum(
-        np.fromiter((
-            binom(el - spin, r) * binom(el + spin, r
-                                        + spin - em) * (-1)**(el - r - spin)
-            * np.exp(1j * em * phi) * (1 / np.tan(theta / 2))**(2 * r + spin - em)
-            for r in range(el - spin + 1)
-        ), dtype=complex),
-    )
-    return term0 * term1 * term2
 
 
 class TestSphHarm:
@@ -88,7 +65,7 @@ def test_spherical_harmonic_nonzero_spin(slm, mw_sampling):
             res = pysh.HarmonicFunction.spin_spherical_harmonic(
                 el, em, spin, th, fi
             )
-            comp = spin_spharm_goldberg(spin, el, em, th, fi)
+            comp = pysh.wigner.spin_spharm_goldberg(spin, el, em, th, fi)
 
             assert np.isclose(res, comp, atol=1e-5)
 
@@ -114,8 +91,7 @@ def test_transform_eval_compare(slm):
     test2 = amp * \
         pysh.HarmonicFunction.spin_spherical_harmonic(
             el, em, spin, gtheta, gphi)
-    test3 = amp * np.array([[spin_spharm_goldberg(spin, el, em, th, fi)
-                             for th in theta] for fi in phi])
+    test3 = amp * pysh.wigner.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
     assert np.allclose(test1, test2, atol=1e-10)
     assert np.allclose(test2, test3, atol=1e-5)
