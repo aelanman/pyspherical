@@ -19,8 +19,8 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
     # Apply periodic extension in theta.
     Gm_th = np.pad(Gm_th, [(0, 0), (0, Nt - 1)], mode='constant')
     em = np.fft.ifftshift(np.arange(-(lmax - 1), lmax))
-    Gm_th[:, Nt:] = ((-1.0)**(spin + em) * Gm_th[:, 2 * Nt
-                     - 2 - np.arange(Nt, 2 * Nt - 1)].T).T
+    Gm_th[:, Nt:] = ((-1.0)**(spin + em)
+                     * Gm_th[:, 2 * Nt - 2 - np.arange(Nt, 2 * Nt - 1)].T).T
 
     Fmm = np.fft.fft(Gm_th, axis=1) / (2 * Nt - 1)
 
@@ -75,7 +75,9 @@ def _dmm_to_flm(dmm, lmax, spin):
             prefac2 = (-1)**(el + m) * (1j)**(m + spin)
             for mp in range(-el, el + 1):
                 flm[ind] += prefac * prefac2 * wig_d[el, mp, m] * \
-                    wig_d[el, -spin, mp] * dmm[m, mp]
+                    wig_d[el, spin, mp] * dmm[m, mp]
+
+                # NOTE -- going -spin -> spin fixed (up to a factor of (-1) the nonzero spin test. Investigate
 
     return flm
 
@@ -192,7 +194,7 @@ def _flm_to_fmm(flm, lmax, spin):
     HarmonicFunction._set_wigner(lmax + 1)
     wig_d = HarmonicFunction.current_dmat
 
-    for li, el in enumerate(range(lmax)):
+    for li, el in enumerate(range(spin, lmax)):
         prefac = (-1)**spin * np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
             prefac2 = (1j)**(-m - spin) * flm[unravel_lm(el, m)]
@@ -202,7 +204,7 @@ def _flm_to_fmm(flm, lmax, spin):
     return fmm
 
 
-def _inv_fft_thetas(fmm, lmax, spin, Nt=None, offset=None):
+def _theta_ifft(fmm, lmax, spin, Nt=None, offset=None):
     # Transform Fmm' to spherical coordinates via inverse FFTs in theta and phi.
     if Nt is None:
         Nt = lmax
@@ -237,7 +239,7 @@ def _do_inv_transform_on_grid(flm, phis, thetas, lmax, lmin=0, spin=0):
         thetas[1] - thetas[0], thetas[2:] - thetas[1:-1])
 
     if theta_is_equi:
-        Fm_th = _inv_fft_thetas(
+        Fm_th = _theta_ifft(
             Fmm, lmax, spin, offset=thetas[0], Nt=thetas.size)
     else:
         raise NotImplementedError(
@@ -270,7 +272,7 @@ def _do_inv_transform_nongrid(flm, phis, thetas, lmax, lmin=0, spin=0):
         un_thetas[1] - un_thetas[0], un_thetas[2:] - un_thetas[1:-1])
 
     if theta_is_equi:
-        Fm_th = _inv_fft_thetas(
+        Fm_th = _theta_ifft(
             Fmm, lmax, spin, offset=un_thetas[0], Nt=Nlats
         )
     else:

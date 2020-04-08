@@ -86,9 +86,28 @@ def unravel_lm(el, m):
     return el * (el + 1) + m
 
 
+# TODO -- Make this compatible with numpy arrays
 @jit(types.Tuple((int32, int32))(int32), nopython=True)
 def ravel_lm(ind):
     el = int(np.floor(np.sqrt(ind)))
     m = ind - el * (el + 1)
 
     return el, m
+
+
+def get_grid_sampling(lmax=None, Nt=None, Nf=None):
+
+    if Nt is None:
+        Nt = lmax
+
+    if Nf is None:
+        if lmax is not None:
+            Nf = 2 * lmax - 1
+    if (Nt is None) and (Nf is None):
+        raise ValueError("Input required.")
+
+    dth = np.pi / (2 * Nt - 1)
+    thetas = np.linspace(dth, np.pi, Nt, endpoint=True)
+    phis = np.linspace(0, 2 * np.pi, Nf, endpoint=False)
+
+    return thetas, phis

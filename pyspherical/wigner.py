@@ -165,9 +165,5 @@ class HarmonicFunction:
     @classmethod
     def spin_spherical_harmonic(cls, el, em, spin, theta, phi, lmax=None):
         """Evaluate the spin-weighted spherical harmonic."""
-        prefactor = (-1)**(spin) * np.sqrt((2 * el + 1) / (4 * np.pi))
-
-        # TODO The following line should have a -1 in it, but
-        # removing it is necessary to match scipy. What is going wrong?
-        exp = np.exp(1j * em * phi)
-        return prefactor * exp * cls.wigner_d(el, em, -1 * spin, theta, lmax=lmax)
+        return (-1)**(em) * np.sqrt((2 * el + 1) / (4 * np.pi))\
+            * np.exp(1j * em * phi) * cls.wigner_d(el, em, -1 * spin, theta, lmax=lmax)
