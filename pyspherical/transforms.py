@@ -1,18 +1,27 @@
+"""
+Fast methods for forward and inverse spin-weighted spherical harmonic transforms.
+
+An extension of the methods presented in McEwen and Wiaux (2011) [MW], the transforms here
+use FFTs and numba-acceleration to rapidly compute the spin-weighted spherical harmonic
+decomposition of a discretely-sampled function on a sphere, or invert the decomposition back to
+sampled values. The only requirement is that the sphere be sampled with evenly-spaced samples
+in azimuth (phi) at each colatitude (theta).
+
+Non-uniform sampling in theta will be supported in the future.
+"""
 
 import numpy as np
+import warnings
 
 from .wigner import HarmonicFunction
-from .utils import resize_axis, unravel_lm
+from .utils import resize_axis, unravel_lm, get_grid_sampling
 
-# -----------
+
+# -----------------
 # Forward transform
-# -----------
-
+# -----------------
 
 def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
-    """
-    Do transform over theta, using the approach in McEwen and Wiaux (2011).
-    """
 
     Nt = thetas.size
 
@@ -50,7 +59,7 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
     def do_conv(a):
         # The "valid" option only works with these Fourier-transformed
         # quantities if they have been FFT-shifted, such that the 0 mode
-        # is in the middle of the array.
+        # is in the center of the array.
         return np.convolve(a, weights, mode='valid')
 
     Gmm = np.apply_along_axis(do_conv, 1, padFmm) * 2 * np.pi
@@ -62,8 +71,6 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
 
 
 def _dmm_to_flm(dmm, lmax, spin):
-    # TODO -- numba accelerate this.
-
     flm = np.zeros(lmax**2, dtype=complex)
     HarmonicFunction._set_wigner(lmax + 1)
     wig_d = HarmonicFunction.current_dmat
@@ -72,6 +79,8 @@ def _dmm_to_flm(dmm, lmax, spin):
         prefac = np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
             ind = unravel_lm(el, m)
+
+            # The MW paper was missing a factor of (-1)**(m+spin) here.
             prefac2 = (-1)**(m + 2 * spin) * (1j)**(m + spin)
             for mp in range(-el, el + 1):
                 flm[ind] += prefac * prefac2 * wig_d[el, mp, m] * \
@@ -81,10 +90,7 @@ def _dmm_to_flm(dmm, lmax, spin):
 
 
 def _do_fwd_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1, spin=0):
-    """
-    Do forward transform, assuming a regular grid in both theta and phi.
-    """
-
+    """Do forward transform, assuming a regular grid in both theta and phi."""
     if th_ax == 0:
         # Underlying functions expect the theta and phi axes to be 1 and 0, resp.
         dat = dat.T
@@ -103,7 +109,7 @@ def _do_fwd_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1,
         dmm = _theta_fft(dm_th, thetas, lmax, lmin, spin)
     else:
         raise NotImplementedError(
-            "Non-equispaced latitudes are not yet supported.")
+            "Non-uniform latitude spacing is not yet supported.")
     flm = _dmm_to_flm(dmm, lmax, spin)
 
     return flm
@@ -111,12 +117,10 @@ def _do_fwd_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1,
 
 def _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
     """
-    Forward transform. Assumes isolatitude samples with equal
-    spacing in phi on each ring.
-    """
-    # TODO -- write a separate function for healpix, taking advantage
-    #    of its regularity for grouping pixels into rings.
+    Do forward transform without assuming the same phi sampling for all colatitudes.
 
+    Assumes uniformly-spaced samples in phi on each colatitude ring.
+    """
     dat = dat.flatten()
     phis = phis.flatten()
     thetas = thetas.flatten()
@@ -141,7 +145,7 @@ def _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
         dmm = _theta_fft(dm_th, un_thetas, lmax, lmin, spin)
     else:
         raise NotImplementedError(
-            "Non-equispaced latitudes are not yet supported.")
+            "Non-uniform latitude spacing is not yet supported.")
 
     flm = _dmm_to_flm(dmm, lmax, spin)
 
@@ -150,14 +154,42 @@ def _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
 
 def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
     """
-
     Transform sampled data to spin-weighted spherical harmonics.
 
+    Parameters
+    ----------
+    dat: ndarray of float or complex
+        Sampled data array.
+        Shape can be:
+            * dat.shape = (phis.size, thetas.size)
+            * dat.shape = (thetas.size, phis.size)
+            * dat.shape = phis.shape = theta.shape
+        In the first two cases, it is assumed that the same
+        sampling in phi is done at all co-latitudes.
+    phis: ndarray of float
+        Sample azimuths in radians.
+    thetas: ndarray of float
+        Sample co-latitudes in radians.
+    lmax: int
+        Maximum multipole mode.
+    lmin: int
+        Currently unused.
+        Minimum multipole mode to compute. (Optional, default 0)
+    spin: int
+        Spin of the transform.
+
+    Returns
+    -------
+    flm: ndarray of complex
+        Spherical-harmonic components, shape ((lmax-1)**2)
+        Ordered as:
+            el  = 0  1  1  1  2  2  2  2  2
+            em  = 0 -1  0  1 -2 -1  0  1  2
+            ind = 0  1  2  3  4  5  6  7  8
+        Modes with el < spin will be set to zero.
     """
-    # TODO -- Credit the FFT-based transforms to:
-    #   Eqns 9 - 12
-    #  http://scripts.iucr.org/cgi-bin/paper?S0108767306017478
-    #   Ref 41 of "A novel sampling theorem on the sphere"
+    if lmin != 0:
+        warnings.warn("The lmin keyword is currently unused. Defaulted to 0")
 
     phis = np.asarray(phis)
     thetas = np.asarray(thetas)
@@ -181,13 +213,12 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
         return _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin)
 
 
-# -----------
+# -----------------
 # Inverse transform
-# -----------
+# -----------------
 
 def _flm_to_fmm(flm, lmax, spin):
     # Transform components flm to Fmm (Fourier-transformed data).
-
     fmm = np.zeros(((2 * lmax - 1), (2 * lmax - 1)), dtype=complex)
     HarmonicFunction._set_wigner(lmax + 1)
     wig_d = HarmonicFunction.current_dmat
@@ -203,7 +234,6 @@ def _flm_to_fmm(flm, lmax, spin):
 
 
 def _theta_ifft(fmm, lmax, spin, Nt=None, offset=None):
-    # Transform Fmm' to spherical coordinates via inverse FFTs in theta and phi.
     if Nt is None:
         Nt = lmax
 
@@ -226,10 +256,7 @@ def _theta_ifft(fmm, lmax, spin, Nt=None, offset=None):
 
 
 def _do_inv_transform_on_grid(flm, phis, thetas, lmax, lmin=0, spin=0):
-    """
-    Do inverse transform assuming regular grid in theta and phi.
-    """
-
+    """Do inverse transform assuming regular grid in theta and phi."""
     Fmm = _flm_to_fmm(flm, lmax, spin)
 
     # Transform over theta
@@ -241,7 +268,7 @@ def _do_inv_transform_on_grid(flm, phis, thetas, lmax, lmin=0, spin=0):
             Fmm, lmax, spin, offset=thetas[0], Nt=thetas.size)
     else:
         raise NotImplementedError(
-            "Non-equispaced latitudes are not yet supported.")
+            "Non-uniform latitude spacing is not yet supported.")
 
     # Transform over phi
     Nf = phis.size
@@ -253,10 +280,10 @@ def _do_inv_transform_on_grid(flm, phis, thetas, lmax, lmin=0, spin=0):
 
 def _do_inv_transform_nongrid(flm, phis, thetas, lmax, lmin=0, spin=0):
     """
-    Inverse transform. Assumes isolatitude samples with equal
-    spacing in phi on each ring.
-    """
+    Do inverse transform without assuming the same phi sampling for all colatitudes.
 
+    Assumes uniformly-spaced samples in phi on each colatitude ring.
+    """
     phis = phis.flatten()
     thetas = thetas.flatten()
 
@@ -275,7 +302,7 @@ def _do_inv_transform_nongrid(flm, phis, thetas, lmax, lmin=0, spin=0):
         )
     else:
         raise NotImplementedError(
-            "Non-equispaced latitudes are not yet supported.")
+            "Non-uniform latitude spacing is not yet supported.")
 
     # Transform m to phi, per ring.
     #   Need to apply a phase offset if the 0th index is not at phi = 0
@@ -293,34 +320,61 @@ def _do_inv_transform_nongrid(flm, phis, thetas, lmax, lmin=0, spin=0):
     return dat
 
 
-def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt=None, Nf=None, grid=None):
+def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt=None, Nf=None):
     """
     Evaluate spin-weighted spherical harmonic components to a sphere.
 
-    phis/thetas overrides Nt/Nf
+    Without any optional parameters, this assumes the sampling described in McEwan and Wiaux (2011).
 
+    Parameters
+    ----------
+    flm: ndarray of complex
+        Spherical harmonic components in the ordering returned by forward_transform.
+    phis: ndarray of float
+        Sample azimuths in radians. Overrides Nf keyword. (Optional)
+        Defaults to Nf uniform samples in [0,  2 pi).
+    thetas: ndarray of float
+        Sample co-latitudes in radians. Overrides Nt keyword. (Optional)
+        Defaults to Nt uniform samples in [dth, pi], where dth = pi/(2 * Nt - 1)
+    lmax: int
+        Maximum multipole mode. (Optional)
+        Defaults to sqrt(len(flm)).
+    lmin: int
+        Currently unused.
+        Minimum multipole mode to compute. (Optional, default 0)
+    spin: int
+        Spin of the transform.
+    Nt: int
+        Number of samples in theta. (Optional, defaults to lmax)
+    Nf: int
+        Number of samples in phi for all colatitudes (Optional, defaults to (2 * lmax - 1))
+
+    Returns
+    -------
+    dat: ndarray of complex
+        Evaluation of the spherical harmonic components to the sample positions.
+
+
+    Notes
+    -----
+    The sampling given through phi/theta can either be the axes of a grid (i.e., identical phi sampling
+    for all thetas) or specify the individual phi/theta positions for each sample. In the first case,
+    dat.shape = (phi.size, theta.size). In the latter case, dat.shape = phi.shape = theta.shape.
+
+    This function cannot be used to evaluate the spherical harmonic components to arbitrary positions on
+    the sphere. For that, the function :meth:`HarmonicFunction.spin_spherical_harmonic()` is provided.
     """
-    # TODO -- Credit the FFT-based transforms to:
-    #   Eqns 9 - 12
-    #  http://scripts.iucr.org/cgi-bin/paper?S0108767306017478
-    #   Ref 41 of "A novel sampling theorem on the sphere"
-
     if lmax is None:
         lmax = int(np.sqrt(flm.size))
 
     if np.sqrt(flm.size) % 1 != 0:
         raise ValueError("Invalid flm shape: {}".format(str(flm.shape)))
 
+    _thetas, _phis = get_grid_sampling(lmax, Nt, Nf)
     if thetas is None:
-        if Nt is None:
-            Nt = lmax
-        dth = np.pi / (2 * Nt - 1)
-        thetas = np.linspace(dth, np.pi, Nt, endpoint=True)
-
+        thetas = _thetas
     if phis is None:
-        if Nf is None:
-            Nf = 2 * lmax - 1
-        phis = np.linspace(0, 2 * np.pi, Nf, endpoint=False)
+        phis = _phis
 
     phis = np.asarray(phis)
     thetas = np.asarray(thetas)
@@ -330,15 +384,14 @@ def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt
 
     # Guess from coordinate shapes/sizes if they represent axes of a grid or
     # fully cover the desired sampling.
-    if grid is None:
-        grid = True
-        if not np.unique(thetas).size == thetas.size:
-            grid = False
-            if not phis.shape == thetas.shape:
-                raise ValueError("It looks like the coordinates are non-grid, "
-                                 "but their shapes are inconsistent:"
-                                 "\n\tphis.shape = {}"
-                                 "\n\tthetas.shape = {}".format(str(phis.shape), str(thetas.shape)))
+    grid = True
+    if not np.unique(thetas).size == thetas.size:
+        grid = False
+        if not phis.shape == thetas.shape:
+            raise ValueError("It looks like the coordinates are non-grid, "
+                             "but their shapes are inconsistent:"
+                             "\n\tphis.shape = {}"
+                             "\n\tthetas.shape = {}".format(str(phis.shape), str(thetas.shape)))
 
     if grid:
         return _do_inv_transform_on_grid(flm, phis, thetas, lmax, lmin, spin)

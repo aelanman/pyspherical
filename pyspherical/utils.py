@@ -1,3 +1,5 @@
+"""Utility functions."""
+
 import numpy as np
 
 from numba import jit, int32, types
@@ -5,21 +7,34 @@ from numba import jit, int32, types
 
 def resize_axis(arr, size, mode='zero', axis=0):
     """
-    Resize an axis of the array.
+    Resize an axis of the array, either truncating or zero-padding.
+
+    The "mode" keyword determines how this is done.
 
     Parameters
     ----------
-    arr : ndarray
+    arr: ndarray
         Array to resize
-    size : int
+    size: int
         New size for the axis.
-    mode : str
+    mode: str
         If the new array is zero-padded, where to put the old data:
             * 'zero' : Put zeros in the middle of the axis (center data on zero)
             * 'start' : Put zeros at the end of the axis.
             * 'center': Evenly fill data on both sides.
-    axis : int
+        Defaults to "zero".
+    axis: int
         Which axis to resize
+
+    Returns
+    -------
+    arr: ndarray
+        Input array with the specified axis padded or truncated.
+
+    Notes
+    -----
+    The 'zero' mode can be used to zero-pad an FFT-transformed array before
+    applying an inverse transform.
     """
     shape = list(arr.shape)
     shape[axis] = size
@@ -71,7 +86,7 @@ def resize_axis(arr, size, mode='zero', axis=0):
 
 @jit(int32(int32, int32, int32), nopython=True)
 def tri_ravel(l, m1, m2):
-    # Ravel indices for the 'stack of triangles' ordering.
+    """Ravel indices for the 'stack of triangles' ordering."""
     # m1 must be >= m2
     if m1 < m2 or m1 > l or m2 > l:
         raise ValueError("Invalid indices")
@@ -83,19 +98,41 @@ def tri_ravel(l, m1, m2):
 
 @jit(int32(int32, int32), nopython=True)
 def unravel_lm(el, m):
+    """Get index from (el, em)."""
     return el * (el + 1) + m
 
 
-# TODO -- Make this compatible with numpy arrays
 @jit(types.Tuple((int32, int32))(int32), nopython=True)
 def ravel_lm(ind):
+    """Get (el, em) from index."""
     el = int(np.floor(np.sqrt(ind)))
     m = ind - el * (el + 1)
-
     return el, m
 
 
 def get_grid_sampling(lmax=None, Nt=None, Nf=None):
+    """
+    Get sample positions for "grid", compatible with the MW transform methods.
+
+    Parameters
+    ----------
+    lmax: int
+        Maximum multipole moment (Optional if Nt/Nf are set.)
+    Nt: int
+        Number of samples in theta. (Optional, defaults to lmax)
+    Nf: int
+        Number of samples in phi for all colatitudes
+        (Optional, defaults to (2 * lmax - 1))
+
+    Returns
+    -------
+    thetas: ndarray
+        Colatitudes in radians.
+    phis: ndarray
+        Azimuths in radians.
+    """
+    if (lmax is None) and (Nt is None or Nf is None):
+        raise ValueError("Need to provide lmax if Nt and Nf are unset.")
 
     if Nt is None:
         Nt = lmax

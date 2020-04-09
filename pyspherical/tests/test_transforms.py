@@ -8,24 +8,12 @@ import pyspherical as pysh
 
 # Test transforms of sampled data.
 
-# Tests to add:
-#   *> Transform and inverse transform returns original.
-#   *> Transform of a linear combo of spherical harmonics returns peaks in the right places.
-#   > Check with different samplings
-#   *> Transforms with higher spins.
-
 
 @pytest.fixture
 def mw_sum_of_harms():
     lmax = 10
 
-    Nt = lmax
-    Nf = 2 * lmax - 1
-
-    # Define samples
-    dth = np.pi / (2 * Nt - 1)
-    theta = np.linspace(dth, np.pi, Nt, endpoint=True)
-    phi = np.linspace(0, 2 * np.pi, Nf, endpoint=False)
+    theta, phi = pysh.utils.get_grid_sampling(lmax)
 
     gtheta, gphi = np.meshgrid(theta, phi)
 
@@ -42,7 +30,7 @@ def mw_sum_of_harms():
         for ii in range(Npeaks):
             em = peak_ems[ii]
             el = peak_els[ii]
-            # TODO -- Go back to using sph_harm, since we don't need spin nonzero. It's more stable.
+            # TODO -- Go back to using sph_harm for spin 0, since we don't need spin nonzero. It's more stable.
             dat += peak_amps[ii] * pysh.wigner.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
         return dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps)
@@ -74,16 +62,7 @@ def test_transform_mw_sampling(mw_sum_of_harms):
 
 @pytest.mark.parametrize('lmax', range(10, 50, 5))
 def test_transform_mw_sampling_monopole(lmax):
-    # MW sampling:
-    #   (lmax) samples in theta
-    #   (2 * lmax - 1) in phi
-    Nt = lmax
-    Nf = 2 * lmax - 1
-
-    # Define samples
-    dth = np.pi / (2 * Nt - 1)
-    theta = np.linspace(dth, np.pi, Nt, endpoint=True)
-    phi = np.linspace(0, 2 * np.pi, Nf, endpoint=False)
+    theta, phi = pysh.utils.get_grid_sampling(lmax)
 
     gtheta, gphi = np.meshgrid(theta, phi)
 

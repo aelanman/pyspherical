@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-from scipy.special import sph_harm
 
 import pyspherical as pysh
 
@@ -10,44 +9,9 @@ def mw_sampling():
     # MW sampling of a sphere
     Nt = 701   # Number of samples in theta (must be odd)
     Nf = 401  # Samples in phi
-
-    # Define samples
-    dth = np.pi / (2 * Nt - 1)
-    theta = np.linspace(dth, np.pi, Nt, endpoint=True)
-    phi = np.linspace(0, 2 * np.pi, Nf, endpoint=False)
-
-    return theta, phi
-
-
-class TestSphHarm:
-
-    lmax = 5
-
-    def setup(self):
-        Nt = 701   # Number of samples in theta (must be odd)
-        Nf = 401  # Samples in phi
-        pysh.HarmonicFunction.current_dmat = None   # Reset current_dmat
-        # Define samples
-        dth = np.pi / (2 * Nt - 1)
-        theta = np.linspace(dth, np.pi, Nt, endpoint=True)
-        phi = np.linspace(0, 2 * np.pi, Nf, endpoint=False)
-
-        # Data, shape (Nf , Nt)
-        self.gtheta, self.gphi = np.meshgrid(theta, phi)
-
-    @pytest.mark.parametrize('el, em', [(el, em) for el in range(0, lmax) for em in range(-el, el + 1)])
-    def test_spherical_harmonic_spin0(self, el, em):
-        # Check against scipy calculation
-        # for spin 0
-
-        dat = sph_harm(em, el, self.gphi, self.gtheta)
-
-        res = pysh.HarmonicFunction.spin_spherical_harmonic(
-            el, em, 0, self.gtheta, self.gphi, lmax=self.lmax
-        )
-
-        assert pysh.HarmonicFunction.current_dmat.lmax == self.lmax
-        assert np.allclose(dat, res, atol=1e-4)
+    theta, phi = pysh.utils.get_grid_sampling(Nt=Nt, Nf=Nf)
+    gtheta, gphi = np.meshgrid(theta, phi)
+    return theta, phi, gtheta, gphi
 
 
 @pytest.mark.parametrize('slm', ((spin, el, em)
@@ -56,37 +20,22 @@ class TestSphHarm:
                                  for em in range(-el, el + 1)
                                  )
                          )
-def test_spherical_harmonic_nonzero_spin(slm, mw_sampling):
-    spin, el, em = slm
-    theta, phi = mw_sampling
-    pysh.HarmonicFunction._set_wigner(5)
-    for th in theta[::50]:
-        for fi in phi[::50]:
-            res = pysh.HarmonicFunction.spin_spherical_harmonic(
-                el, em, spin, th, fi
-            )
-            comp = pysh.wigner.spin_spharm_goldberg(spin, el, em, th, fi)
-
-            assert np.isclose(res, comp, atol=1e-5)
-
-
-@pytest.mark.parametrize('slm', ((spin, el, em)
-                                 for spin in range(3)
-                                 for el in range(spin, 5)
-                                 for em in range(-el, el + 1)
-                                 )
-                         )
-def test_transform_eval_compare(slm):
+def test_transform_eval_compare(mw_sampling, slm):
     # Compare evaluation of the spherical harmonic to the result returned
     # by the inverse transform.
+    # Also compare spin_spherical_harmonic to goldberg eval.
     amp = 20
     lmax = 5
     spin, el, em = slm
 
+    theta, phi, gtheta, gphi = mw_sampling
+
+    if (spin, el, em) == (0, 0, 0):
+        pysh.HarmonicFunction.current_dmat = None   # Reset current_dmat
+
     flm = np.zeros(lmax**2, dtype=complex)
     flm[pysh.utils.unravel_lm(el, em)] = amp
-    theta, phi = pysh.utils.get_grid_sampling(lmax)
-    gtheta, gphi = np.meshgrid(theta, phi)
+
     test1 = pysh.inverse_transform(flm, thetas=theta, phis=phi, spin=spin)
     test2 = amp * \
         pysh.HarmonicFunction.spin_spherical_harmonic(
@@ -95,10 +44,13 @@ def test_transform_eval_compare(slm):
 
     assert np.allclose(test1, test2, atol=1e-10)
     assert np.allclose(test2, test3, atol=1e-5)
+    assert pysh.HarmonicFunction.current_dmat.lmax == lmax + 1
 
 
 def test_wigner_symm():
+    # Test symmetries of the Wigner-d function.
     # Appendix of Prezeau and Reinecke (2010)
+
     lmax = 50
     pysh.HarmonicFunction._set_wigner(lmax)
 
