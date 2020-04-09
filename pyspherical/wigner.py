@@ -173,7 +173,7 @@ class HarmonicFunction:
 
         Returns
         -------
-        real or ndarray of float
+        complex or ndarray of complex
             Value of Wigner-d function.
             If multiple theta values are given, multiple values are returned.
 
@@ -199,7 +199,7 @@ class HarmonicFunction:
             + dmats[0]
         )
         if val.size == 1:
-            return float(val)
+            return complex(val)
         return val.squeeze()
 
     @classmethod
