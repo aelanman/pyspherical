@@ -177,12 +177,14 @@ def _fac(val):
 @np.vectorize
 def spin_spharm_goldberg(spin, el, em, theta, phi):
     # Spin-S spherical harmonic function from Goldberg et al. (1967)
+    # Limited numerical stability
 
-    if spin < el:
+    if (spin > 0) and (el < spin):
         return 0
 
-    if np.isclose(theta % np.pi, 0):
+    if np.isclose((theta / 2) % np.pi, 0):
         return 0
+
     term0 = (-1.)**em * np.sqrt(
         _fac(el + em) * _fac(el - em) * (2 * el + 1)
         / (4 * np.pi * _fac(el + spin) * _fac(el - spin))

@@ -72,12 +72,10 @@ def _dmm_to_flm(dmm, lmax, spin):
         prefac = np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
             ind = unravel_lm(el, m)
-            prefac2 = (-1)**(el + m) * (1j)**(m + spin)
+            prefac2 = (-1)**(m + 2 * spin) * (1j)**(m + spin)
             for mp in range(-el, el + 1):
                 flm[ind] += prefac * prefac2 * wig_d[el, mp, m] * \
-                    wig_d[el, spin, mp] * dmm[m, mp]
-
-                # NOTE -- going -spin -> spin fixed (up to a factor of (-1) the nonzero spin test. Investigate
+                    wig_d[el, mp, -spin] * dmm[m, mp]
 
     return flm
 
