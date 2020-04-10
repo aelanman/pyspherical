@@ -1,6 +1,6 @@
 # pyspherical
 
-`pyspherical` implements the fast spin-weighted spherical harmonic transform methods of McEwan and Wiaux (2011) [1],
+Implements the fast spin-weighted spherical harmonic transform methods of McEwan and Wiaux (2011) [1],
 and evaluates Wigner little-d functions using the recursion relations of Trapani and Navaza (2006) [2]. Transforms are
 supported for any spherical sampling pattern with equally-spaced samples of azimuth at each latitude (iso-latitude sampling).
 Additional functions are provided to evaluate spin-weighted spherical harmonics at arbitrary positions.
