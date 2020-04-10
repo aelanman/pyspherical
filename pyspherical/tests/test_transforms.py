@@ -38,13 +38,14 @@ def mw_sum_of_harms():
     return _func
 
 
-def test_transform_mw_sampling(mw_sum_of_harms):
+@pytest.mark.parametrize('spin', range(3))
+def test_transform_mw_sampling(spin, mw_sum_of_harms):
     # MW sampling:
     #   (lmax) samples in theta
     #   (2 * lmax - 1) in phi
 
-    dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms(0)
-    flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=0, spin=0)
+    dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms(spin)
+    flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=0, spin=spin)
     Npeaks = len(peak_els)
 
     # Verify that the peaks are at the expected el, em.

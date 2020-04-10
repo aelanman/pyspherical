@@ -4,6 +4,8 @@ import numpy as np
 
 from numba import jit, int32, types
 
+__all__ = ['resize_axis', 'tri_ravel', 'unravel_lm', 'ravel_lm', 'get_grid_sampling']
+
 
 def resize_axis(arr, size, mode='zero', axis=0):
     """

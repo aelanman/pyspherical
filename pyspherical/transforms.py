@@ -17,9 +17,12 @@ from .wigner import HarmonicFunction
 from .utils import resize_axis, unravel_lm, get_grid_sampling
 
 
+__all__ = ['forward_transform', 'inverse_transform']
+
 # -----------------
 # Forward transform
 # -----------------
+
 
 def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
 

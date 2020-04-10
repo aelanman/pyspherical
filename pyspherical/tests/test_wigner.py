@@ -31,35 +31,35 @@ def test_transform_eval_compare(mw_sampling, slm):
     theta, phi, gtheta, gphi = mw_sampling
 
     if (spin, el, em) == (0, 0, 0):
-        pysh.HarmonicFunction.current_dmat = None   # Reset current_dmat
+        pysh.clear_cached_dmat()   # Reset current_dmat
+        assert pysh.get_cached_dmat() is None
 
     flm = np.zeros(lmax**2, dtype=complex)
     flm[pysh.utils.unravel_lm(el, em)] = amp
 
     test1 = pysh.inverse_transform(flm, thetas=theta, phis=phi, spin=spin)
     test2 = amp * \
-        pysh.HarmonicFunction.spin_spherical_harmonic(
+        pysh.spin_spherical_harmonic(
             el, em, spin, gtheta, gphi)
     test3 = amp * pysh.wigner.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
     assert np.allclose(test1, test2, atol=1e-10)
     assert np.allclose(test2, test3, atol=1e-5)
-    assert pysh.HarmonicFunction.current_dmat.lmax == lmax + 1
+    assert pysh.get_cached_dmat().lmax == lmax + 1
 
 
 def test_wigner_symm():
     # Test symmetries of the Wigner-d function.
     # Appendix of Prezeau and Reinecke (2010)
 
-    lmax = 50
-    pysh.HarmonicFunction._set_wigner(lmax)
+    lmax = 15
 
     def dl(el, m1, m2, theta):
-        return pysh.HarmonicFunction.wigner_d(el, m1, m2, theta)
+        return pysh.wigner_d(el, m1, m2, theta, lmax)
 
     Nth = 5
     for th in np.linspace(0, np.pi, Nth):
-        for ll in range(15):
+        for ll in range(lmax):
             for m in range(-ll, ll + 1):
                 for mm in range(-ll, ll + 1):
                     val1 = dl(ll, m, mm, th)

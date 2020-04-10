@@ -7,6 +7,15 @@ from scipy.special import binom, factorial
 
 from .utils import tri_ravel
 
+__all__ = [
+    'spin_spharm_goldberg',
+    'DeltaMatrix',
+    'spin_spherical_harmonic',
+    'wigner_d',
+    'get_cached_dmat',
+    'clear_cached_dmat',
+]
+
 
 @jit(nopython=True)
 def _dmat_eval(lmin, lmax, arr):
@@ -156,33 +165,6 @@ class HarmonicFunction:
 
     @classmethod
     def wigner_d(cls, el, m1, m2, theta, lmax=None):
-        """
-        Evaluate the Wigner-d function (little-d) using cached values at pi/2.
-
-        d^l_{m1, m2}(theta)
-
-        Parameters
-        ----------
-        el, m1, m2: ints
-            Indices of the d-function.
-        theta: float or ndarray of float
-            Angle argument(s) in radians.
-        lmax: int
-            Precompute the cached Delta matrix up to some maximum el.
-            (Optional. Defaults to el or the maximum el used in the current Python session)
-
-        Returns
-        -------
-        complex or ndarray of complex
-            Value of Wigner-d function.
-            If multiple theta values are given, multiple values are returned.
-
-        Notes
-        -----
-        Uses eqn 8 of McEwan and Wiaux (2011), which cites:
-            A. F. Nikiforov and V. B. Uvarov (1991)
-
-        """
         theta = np.atleast_1d(theta)
         if lmax is None:
             lmax = el
@@ -204,36 +186,6 @@ class HarmonicFunction:
 
     @classmethod
     def spin_spherical_harmonic(cls, el, em, spin, theta, phi, lmax=None):
-        """
-        Evaluate the spin-weighted spherical harmonic.
-
-        Obeys the standard numpy broadcasting for theta and phi.
-
-        Parameters
-        ----------
-        el, em: ints
-            Spherical harmonic mode.
-        spin: int
-            Spin of the function.
-        theta: ndarray or float
-            Colatitude(s) to evaluate to, in radians.
-        phi: ndarray or float
-            Azimuths to evaluate to, in radians.
-        lmax: int
-            Precompute the cached Delta matrix up to some maximum el.
-            (Optional. Defaults to el or the maximum el used in the current Python session)
-
-        Returns
-        -------
-        complex or ndarray of complex
-            Values of the sYlm spin-weighted spherical harmonic function
-            at spherical positions theta, phi.
-
-        Notes
-        -----
-        Uses eqns (2) and (7) of McEwan and Wiaux (2011).
-        If theta/phi are arrays, they must have the same shape.
-        """
         theta = np.asarray(theta)
         phi = np.asarray(phi)
 
@@ -242,6 +194,86 @@ class HarmonicFunction:
 
         return (-1)**(em) * np.sqrt((2 * el + 1) / (4 * np.pi))\
             * np.exp(1j * em * phi) * cls.wigner_d(el, em, -1 * spin, theta, lmax=lmax)
+
+    @classmethod
+    def clear_dmat(cls):
+        """Delete cached DeltaMatrix."""
+        cls.current_dmat = None
+
+
+def wigner_d(el, m1, m2, theta, lmax=None):
+    """
+    Evaluate the Wigner-d function (little-d) using cached values at pi/2.
+
+    d^l_{m1, m2}(theta)
+
+    Parameters
+    ----------
+    el, m1, m2: ints
+        Indices of the d-function.
+    theta: float or ndarray of float
+        Angle argument(s) in radians.
+    lmax: int
+        Precompute the cached Delta matrix up to some maximum el.
+        (Optional. Defaults to el or the maximum el used in the current Python session)
+
+    Returns
+    -------
+    complex or ndarray of complex
+        Value of Wigner-d function.
+        If multiple theta values are given, multiple values are returned.
+
+    Notes
+    -----
+    Uses eqn 8 of McEwan and Wiaux (2011), which cites:
+        A. F. Nikiforov and V. B. Uvarov (1991)
+
+    """
+    return HarmonicFunction.wigner_d(el, m1, m2, theta, lmax)
+
+
+def spin_spherical_harmonic(el, em, spin, theta, phi, lmax=None):
+    """
+    Evaluate the spin-weighted spherical harmonic.
+
+    Obeys the standard numpy broadcasting for theta and phi.
+
+    Parameters
+    ----------
+    el, em: ints
+        Spherical harmonic mode.
+    spin: int
+        Spin of the function.
+    theta: ndarray or float
+        Colatitude(s) to evaluate to, in radians.
+    phi: ndarray or float
+        Azimuths to evaluate to, in radians.
+    lmax: int
+        Precompute the cached Delta matrix up to some maximum el.
+        (Optional. Defaults to el or the maximum el used in the current Python session)
+
+    Returns
+    -------
+    complex or ndarray of complex
+        Values of the sYlm spin-weighted spherical harmonic function
+        at spherical positions theta, phi.
+
+    Notes
+    -----
+    Uses eqns (2) and (7) of McEwan and Wiaux (2011).
+    If theta/phi are arrays, they must have the same shape.
+    """
+    return HarmonicFunction.spin_spherical_harmonic(el, em, spin, theta, phi, lmax)
+
+
+def get_cached_dmat():
+    """Return currently cached DeltaMatrix."""
+    return HarmonicFunction.current_dmat
+
+
+def clear_cached_dmat():
+    """Delete cached DeltaMatrix."""
+    HarmonicFunction.clear_dmat()
 
 
 def _fac(val):
