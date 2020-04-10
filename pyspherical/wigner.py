@@ -176,7 +176,7 @@ class HarmonicFunction:
         _get_matrix_elements(el, m1, m2, cls.current_dmat._arr, dmats)
 
         val = (1j) ** (m2 - m1) * (
-            np.sum((exp_fac + (-1)**(m1 + m2 - 2 * el) / exp_fac)
+            np.sum((exp_fac + (-1.)**(m1 + m2 - 2 * el) / exp_fac)
                    * dmats[1:], axis=-1)
             + dmats[0]
         )
@@ -192,7 +192,7 @@ class HarmonicFunction:
         if not theta.shape == phi.shape:
             raise ValueError("theta and phi must have the same shape.")
 
-        return (-1)**(em) * np.sqrt((2 * el + 1) / (4 * np.pi))\
+        return (-1.)**(em) * np.sqrt((2 * el + 1) / (4 * np.pi))\
             * np.exp(1j * em * phi) * cls.wigner_d(el, em, -1 * spin, theta, lmax=lmax)
 
     @classmethod

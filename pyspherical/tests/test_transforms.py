@@ -31,7 +31,7 @@ def mw_sum_of_harms():
             em = peak_ems[ii]
             el = peak_els[ii]
             # TODO -- Go back to using sph_harm for spin 0, since we don't need spin nonzero. It's more stable.
-            dat += peak_amps[ii] * pysh.wigner.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
+            dat += peak_amps[ii] * pysh.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
         return dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps)
 

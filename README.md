@@ -21,6 +21,13 @@ git clone https://github.com/aelanman/pyspherical.git
 pip install .
 ```
 
+## Quick Start
+
+Tests can be run using `pytest` to confirm that the installation was successful.
+
+An example script `scripts/example_1.py` demonstrates how to use some of the available evaluation and transform functions.
+
+
 ## References
 
 [1] McEwen, J. D., and Y. Wiaux. “A Novel Sampling Theorem on the Sphere.” IEEE Transactions on Signal Processing, vol. 59, no. 12, Dec. 2011, pp. 5876–87. arXiv.org, doi:10.1109/TSP.2011.2166394.
