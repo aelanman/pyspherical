@@ -70,3 +70,36 @@ def test_wigner_symm():
                                       dl(ll, mm, m, th), atol=1e-10)
                     assert np.isclose(
                         dl(ll, m, mm, np.pi - th), (-1)**(ll - mm) * dl(ll, -m, mm, th), atol=1e-10)
+
+
+def test_delta_matrix_inits():
+    # Initializing delta matrices with different conditions.
+
+    lmax = 20
+
+    # Full:
+    dmat1 = pysh.DeltaMatrix(lmax)
+
+    # With lmin, but no starting array.
+    dmat2 = pysh.DeltaMatrix(lmax, lmin=5)
+
+    # Subset of existing arr0:
+    dmat3 = pysh.DeltaMatrix(15, lmin=6, dmat=dmat1)
+
+    # Starting from end of previous.
+    dmat4 = pysh.DeltaMatrix(lmax, lmin=15, dmat=dmat3)
+
+    # Starting from after end of previous.
+    dmat5 = pysh.DeltaMatrix(20, lmin=9, dmat=pysh.DeltaMatrix(7))
+
+    # Given an existing dmat, will it be copied correctly?
+    dmat6 = pysh.DeltaMatrix(lmax, lmin=0, dmat=dmat1)
+
+    # For each, check that the results match with the full.
+
+    for dm in [dmat2, dmat3, dmat4, dmat5, dmat6]:
+        ln, lx = dm.lmin, dm.lmax
+        for el in range(ln, lx):
+            for m1 in range(-el, el + 1):
+                for m2 in range(-el, el + 1):
+                    assert dm[el, m1, m2] == dmat1[el, m1, m2]

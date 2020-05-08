@@ -97,10 +97,12 @@ def tri_ravel(l, m1, m2):
     ind = base + offset
     return int(ind)
 
+@jit(int32(int32), nopython=True)
 def tri_base(l):
     """Minimum index for a given el block."""
     return tri_ravel(l, l, 0)
 
+@jit(int32(int32), nopython=True)
 def el_block_size(l):
     """Size needed for a given el in the dmat array."""
     return (l + 1) * (l + 2) // 2
