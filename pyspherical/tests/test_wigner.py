@@ -103,3 +103,25 @@ def test_delta_matrix_inits():
             for m1 in range(-el, el + 1):
                 for m2 in range(-el, el + 1):
                     assert dm[el, m1, m2] == dmat1[el, m1, m2]
+
+
+@pytest.mark.parametrize(
+        ('err', 'lmin', 'lmax', 'arrsize'),
+            [
+                (False, 0, 15, 816),
+                (False, 4, 9, 200),
+                (True, 4, 9, 157)
+            ]
+        )
+def test_dmat_params(err, lmin, lmax, arrsize):
+    # Getting missing parameter from the set lmin, lmax, arrsize
+    _get_array_params = pysh.DeltaMatrix._get_array_params
+    if not err:
+        assert _get_array_params(None, lmax, arrsize) == (lmin, lmax, arrsize)
+        assert _get_array_params(lmin, None, arrsize) == (lmin, lmax, arrsize)
+        assert _get_array_params(lmin, lmax, None) == (lmin, lmax, arrsize)
+    else:
+        with pytest.raises(ValueError, match="Invalid"):
+            _get_array_params(None, lmax, arrsize)
+        with pytest.raises(ValueError, match="Invalid"):
+            _get_array_params(lmin, None, arrsize)

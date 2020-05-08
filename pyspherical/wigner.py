@@ -150,6 +150,37 @@ class DeltaMatrix:
         return (1 + lmax - lmin) * (6 + 5 * lmax + lmax**2 + 4
                                     * lmin + lmax * lmin + lmin**2) // 6
 
+    @classmethod
+    def _get_array_params(cls, lmin=None, lmax=None, arrsize=None):
+        # Fill in the missing parameter.
+        # Only one input may be None at a time!
+
+        if arrsize is None:
+            arrsize = cls.estimate_array_size(lmin, lmax)
+
+        if lmax is None:
+            lmax = lmin
+            while True:
+                s = cls.estimate_array_size(lmin, lmax)
+                if s == arrsize:
+                    break
+                if s > arrsize:
+                    raise ValueError("Invalid combination.")
+                lmax += 1
+
+        if lmin is None:
+            lmin = lmax
+            while True:
+                s = cls.estimate_array_size(lmin, lmax)
+                if s == arrsize:
+                    break
+                if s > arrsize:
+                    raise ValueError("Invalid combination.")
+                lmin -= 1
+
+        return (lmin, lmax, arrsize)
+
+
     def __getitem__(self, index):
         """
         Access stored elements, or use symmetry relations for non-stored elements.
@@ -224,6 +255,10 @@ class HarmonicFunction:
 
     def __init__(self):
         raise Exception("HarmonicFunction class is not instantiable.")
+
+    @classmethod
+    def _est_arrsize_limit(cls, maxmem):
+        pass
 
     @classmethod
     def _set_wigner(cls, lmax):
