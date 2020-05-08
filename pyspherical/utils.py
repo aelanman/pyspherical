@@ -90,13 +90,20 @@ def resize_axis(arr, size, mode='zero', axis=0):
 def tri_ravel(l, m1, m2):
     """Ravel indices for the 'stack of triangles' ordering."""
     # m1 must be >= m2
-    if m1 < m2 or m1 > l or m2 > l:
+    if m1 < m2 or m1 > l or m2 > l or m1 < 0 or m2 < 0:
         raise ValueError("Invalid indices")
     base = l * (l + 1) * (l + 2) // 6
     offset = (l - m1) * (l + 3 + m1) // 2 + m2
     ind = base + offset
     return int(ind)
 
+def tri_base(l):
+    """Minimum index for a given el block."""
+    return tri_ravel(l, l, 0)
+
+def el_block_size(l):
+    """Size needed for a given el in the dmat array."""
+    return (l + 1) * (l + 2) // 2
 
 @jit(int32(int32, int32), nopython=True)
 def unravel_lm(el, m):

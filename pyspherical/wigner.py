@@ -5,7 +5,8 @@ import warnings
 from numba import jit
 from scipy.special import binom, factorial
 
-from .utils import tri_ravel
+from .utils import tri_ravel, tri_base
+
 
 __all__ = [
     'spin_spharm_goldberg',
@@ -17,35 +18,46 @@ __all__ = [
 ]
 
 
-@jit(nopython=True)
-def _dmat_eval(lmin, lmax, arr):
+#@jit(nopython=True)
+def _dmat_eval(lmax, arr, lmin=0, lstart=None, arr0=None):
     # Evaluate the values of the Wigner-d matrices at pi/2.
     # arr = linear array, modified in-place
-    arr[0] = 1.0
-    for el in range(1, lmax + 1):
+
+    if arr0 is not None:
+        arr[:len(arr0)] = arr0
+    else:
+        arr[0] = 1.0
+    if lstart is None:
+        lstart = lmin + 1
+
+    offset = tri_ravel(lmin, lmin, 0)
+
+    for el in range(lstart, lmax + 1):
+        if el < lmin:
+            offset = tri_base(el + 1)
         dll0 = -np.sqrt((2 * el - 1) / float(2 * el)) * \
-            arr[tri_ravel(el - 1, el - 1, 0)]
-        arr[tri_ravel(el, el, 0)] = dll0
+            arr[tri_ravel(el - 1, el - 1, 0) - offset]
+        arr[tri_ravel(el, el, 0) - offset] = dll0
         for m2 in range(0, el + 1):
             if m2 > 0:
                 dllm = np.sqrt(
                     (el / 2) * (2 * el - 1) / ((el + m2) * (el + m2 - 1))
-                ) * arr[tri_ravel(el - 1, el - 1, m2 - 1)]
-                arr[tri_ravel(el, el, m2)] = dllm
+                ) * arr[tri_ravel(el - 1, el - 1, m2 - 1) - offset]
+                arr[tri_ravel(el, el, m2) - offset] = dllm
             for m1 in range(el - 1, m2 - 1, -1):
                 fac1 = (2 * m2) / np.sqrt((el - m1) * (el + m1 + 1)) * \
-                    arr[tri_ravel(el, m1 + 1, m2)]
+                    arr[tri_ravel(el, m1 + 1, m2) - offset]
                 fac2 = 0.0
                 if (m1 + 2) <= el:
                     fac2 = np.sqrt(
                         ((el - m1 - 1) * (el + m1 + 2))
                         / ((el - m1) * (el + m1 + 1))
-                    ) * arr[tri_ravel(el, m1 + 2, m2)]
-                arr[tri_ravel(el, m1, m2)] = fac1 - fac2
+                    ) * arr[tri_ravel(el, m1 + 2, m2) - offset]
+                arr[tri_ravel(el, m1, m2) - offset] = fac1 - fac2
 
 
 @jit(nopython=True)
-def _access_element(l, m1, m2, arr):
+def _access_element(l, m1, m2, arr, lmin=0):
     # Access stored elements, or use
     # symmetry relations for non-stored elements.
 
@@ -69,7 +81,7 @@ def _access_element(l, m1, m2, arr):
         fac *= (-1)**(m1 - m2)
         m1, m2 = m2, m1
 
-    val = fac * arr[tri_ravel(l, m1, m2)]
+    val = fac * arr[tri_ravel(l, m1, m2) - tri_ravel(lmin, lmin, 0)]
     if np.isnan(val):
         raise ValueError("Invalid entry in dmat")
     return val
@@ -95,16 +107,53 @@ class DeltaMatrix:
         Minimum multipole mode to compute. (Optional, default 0)
     """
 
-    def __init__(self, lmax, lmin=0):
+    def __init__(self, lmax, lmin=0, dmat=None):
         arrsize = self.estimate_array_size(lmin, lmax)
         self._arr = np.empty(arrsize, dtype=np.float32)
         self.lmax = lmax
         self.lmin = lmin
         self.size = arrsize
-        self._eval()
+        self._eval(dmat)
 
-    def _eval(self):
-        _dmat_eval(self.lmin, self.lmax, self._arr)
+    def _eval(self, old_dmat=None):
+        if old_dmat is not None:
+            # Start using data from old matrix.
+            oln, olx = old_dmat.lmin, old_dmat.lmax
+            # Case 1:  [ ( ] )
+            # Case 2:  [ ] ( )
+            # Case 3:  ( [ ) ]
+
+            lstart = max(oln, self.lmin)
+            lstop = min(olx, self.lmin) + 1
+            arr0 = old_dmat._arr[tri_base(lstart) - tri_base(oln):tri_base(lstop) - tri_base(oln)]
+
+            import IPython; IPython.embed()
+            import sys; sys.exit()
+            # TODO -- does this make sense for all cases?
+            #         Can I at least get it working for cases 1 and 2?
+
+
+            # Select from old_dmat._arr
+
+#            if oln == self.lmin and olx == self.lmax:
+#                self._arr = old_dmat._arr
+#            if oln < self.lmin:
+#                ar0_max = np.min(
+#                if olx <= self.lmax:
+#                    b = tri_base(self.lmin)
+#                    ext = self.estimate_array_size(self.lmin, olx)
+#                    arr0 = old_dmat._arr[b:b+ext]
+#                else:
+#
+#            if oln < self.lmin:
+#                if olx < self.lmax:
+#                    inds = range(
+#                        base_ravel(self.lmin) -
+#                    )
+#                    arr0 = old_dmat._arr[inds]
+#                    _dmat_eval(self.lmax, self._arr,
+
+#        _dmat_eval(self.lmax, self._arr, lmin=self.lmin)
 
     @classmethod
     def estimate_array_size(cls, lmin, lmax):
@@ -150,6 +199,34 @@ class HarmonicFunction:
 
     Not to be instantiated.
     """
+
+    ## NOTE Changes for memory usage control:
+    #
+    # Change _dmat_eval to accept lmin and (optionally) arr0
+    #   arr0 gives required information to evaluate lmin+1 from the lmin step.
+    #       arr[current_lmin00_ind : current_lmin00_ind + (2 * lmin - 1) + 1] --> Full el = lmin layer
+    #   If not provided, start from 0 as usual -- cache values up until lmin, then start placing in the array.
+    #   The DeltaMatrix object current_dmat will keep track of lmin/lmax/arrsize
+    #       > If el > lmax, re-evaluate with lmin = lmax through arrsize
+    #       > If el < lmin, re-evaluate from lmin
+    #       >> will be faster going up than down, but that's how it's used.
+    #   Use index = tri_ravel(el, m1, m2) - tri_ravel(lmin, 0, 0) to access current element from arr
+
+    # Steps:
+    #   1. Enable arr0 and lmin in _dmat_eval
+    #       > Both must be provided at the same time.
+    #   2. In DeltaMatrix init, handle the evaluation with lmin but no arr0:
+    #       > Make an array of size arrsize to get from 0 to lmin and fill it with _dmat_eval from 0.
+    #       > If that too is too large, split that up as well.
+    #   3. Function to get lmax from arrsize and lmin.
+    #   4. Function to get lmin from arrsize and lmax.
+    #   4. Modify DeltaMatrix init to accept another DeltaMatrix
+    #       > Use the other DeltaMatrix to get starting values, if needed.
+    #   5. In _set_wigner -- Check array size against some arrsize_maximum, and decide on new lmin/lmax.
+    #       > HarmonicFunction will handle memory limits, since it's caching the dmat.
+    #       > Init a new DeltaMatrix given the old and lmin/lmax.
+    #       > Instead of lmax in wigner_d / spin_spherical_harmonic, optional max_array_size? cache_memory_limit?
+    #           >> Set a default value.
 
     current_dmat = None
 
