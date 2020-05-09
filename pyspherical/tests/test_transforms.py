@@ -86,7 +86,7 @@ def test_transform_mw_sampling_loop(spin, mw_sum_of_harms):
 
     # NOTE High tolerance is needed here.
     # flm and returned data match expectations from pyssht, but do not match the input data.
-    # This seems to be highly-dependent on spin, and looks to be numerical in origin.
+    # This seems to be highly-dependent on spin and numerical in origin.
     assert np.allclose(res, dat, atol=1)
 
     Nt = 50
@@ -159,3 +159,37 @@ def test_loop_diffphi_nongrid():
     # it is band-limited, but it's unclear how reversible this should be.
     tol = 1.0
     assert np.allclose(dat, res, atol=tol)
+
+
+@pytest.mark.parametrize('spin', range(3))
+def test_loop_limited_mem(spin, mw_sum_of_harms):
+    # Check that transforms still work with limited memory.
+
+    dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms(spin)
+
+    lmax = 40
+
+    flm = pysh.forward_transform(dat, phi, theta, lmax, spin=spin)
+    res = pysh.inverse_transform(flm, phi, theta, lmax, spin=spin)
+    flm2 = pysh.forward_transform(res, phi, theta, lmax, spin=spin)
+
+    # Error if cached dmat exceeds limit:
+    low_limit = 0.025  # MiB
+
+    # Errors, because the current dmat would exceed this.
+    with pytest.raises(ValueError, match="Cached DeltaMatrix exceeds"):
+        pysh.set_cache_mem_limit(low_limit)
+
+    pysh.clear_cached_dmat()
+    # Limit cache memory to a small value.
+    pysh.set_cache_mem_limit(low_limit)
+
+    # Confirm that transformation still works both ways.
+    flm3 = pysh.forward_transform(res, phi, theta, lmax, spin=spin)
+    res2 = pysh.inverse_transform(flm3, phi, theta, lmax, spin=spin)
+
+    assert np.allclose(flm3, flm2)
+    assert np.allclose(res, res2, atol=1e-4)
+
+    details = pysh.get_cache_details()
+    assert details['size'] * np.zeros(1).nbytes < details['cache_mem_limit']

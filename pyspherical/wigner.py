@@ -15,6 +15,8 @@ __all__ = [
     'wigner_d',
     'get_cached_dmat',
     'clear_cached_dmat',
+    'set_cache_mem_limit',
+    'get_cache_details',
 ]
 
 
@@ -151,7 +153,7 @@ class DeltaMatrix:
                                     * lmin + lmax * lmin + lmin**2) // 6
 
     @classmethod
-    def _get_array_params(cls, lmin=None, lmax=None, arrsize=None):
+    def _get_array_params(cls, lmin=None, lmax=None, arrsize=None, strict=False):
         # Fill in the missing parameter.
         # Only one input may be None at a time!
 
@@ -162,24 +164,29 @@ class DeltaMatrix:
             lmax = lmin
             while True:
                 s = cls.estimate_array_size(lmin, lmax)
-                if s == arrsize:
-                    break
-                if s > arrsize:
+                if s > arrsize and strict:
                     raise ValueError("Invalid combination.")
+                if s > arrsize:
+                    lmax -= 1
+                    break
+                elif s == arrsize:
+                    break
                 lmax += 1
 
         if lmin is None:
             lmin = lmax
             while True:
                 s = cls.estimate_array_size(lmin, lmax)
+                if s > arrsize and strict:
+                    raise ValueError("Invalid combination.")
                 if s == arrsize:
                     break
                 if s > arrsize:
-                    raise ValueError("Invalid combination.")
+                    lmin += 1
+                    break
                 lmin -= 1
-
+        arrsize = cls.estimate_array_size(lmin, lmax)
         return (lmin, lmax, arrsize)
-
 
     def __getitem__(self, index):
         """
@@ -222,57 +229,97 @@ class HarmonicFunction:
     Not to be instantiated.
     """
 
-    # NOTE Changes for memory usage control:
-    #
-    # Change _dmat_eval to accept lmin and (optionally) arr0
-    #   arr0 gives required information to evaluate lmin+1 from the lmin step.
-    #       arr[current_lmin00_ind : current_lmin00_ind + (2 * lmin - 1) + 1] --> Full el = lmin layer
-    #   If not provided, start from 0 as usual -- cache values up until lmin, then start placing in the array.
-    #   The DeltaMatrix object current_dmat will keep track of lmin/lmax/arrsize
-    #       > If el > lmax, re-evaluate with lmin = lmax through arrsize
-    #       > If el < lmin, re-evaluate from lmin
-    #       >> will be faster going up than down, but that's how it's used.
-    #   Use index = tri_ravel(el, m1, m2) - tri_ravel(lmin, 0, 0) to access current element from arr
-
-    # Steps:
-    #   1. Enable arr0 and lmin in _dmat_eval
-    #       > Both must be provided at the same time.
-    #   2. In DeltaMatrix init, handle the evaluation with lmin but no arr0:
-    #       > Make an array of size arrsize to get from 0 to lmin and fill it with _dmat_eval from 0.
-    #       > If that too is too large, split that up as well.
-    #   3. Function to get lmax from arrsize and lmin.
-    #   4. Function to get lmin from arrsize and lmax.
-    #   5. Function to get arrsize from memory limit.
-    #   6. Modify DeltaMatrix init to accept another DeltaMatrix
-    #       > Use the other DeltaMatrix to get starting values, if needed.
-    #   7. In _set_wigner -- Check array size against some arrsize_maximum, and decide on new lmin/lmax.
-    #       > HarmonicFunction will handle memory limits, since it's caching the dmat.
-    #       > Init a new DeltaMatrix given the old and lmin/lmax.
-    #       > Instead of lmax in wigner_d / spin_spherical_harmonic, optional max_array_size? cache_memory_limit?
-    #           >> Set a default value.
-
     current_dmat = None
+    cache_mem_limit = 200 * 2**20   # 200 MiB, lmax ~ 678
+
+    # This is the maximum el mode that whose full m1/m2 block can be
+    # contained in the allowed memory limit.
+    # Reset by set_cache_mem_limit()
+    maximum_el = 10238
 
     def __init__(self):
         raise Exception("HarmonicFunction class is not instantiable.")
 
     @classmethod
+    def set_cache_mem_limit(cls, maxmem):
+        newlim = maxmem * 2**20
+        if cls.current_dmat is not None and cls.current_dmat._arr.nbytes > newlim:
+            raise ValueError(f"Cached DeltaMatrix exceeds new limit {maxmem} MiB."
+                             " Clear it using clear_cached_dmat() first.")
+        cls.cache_memory_limit = newlim
+        max_block_size = cls._est_arrsize_limit(cls.cache_memory_limit)
+        cls.maximum_el = np.floor((np.sqrt(1 + 8 * max_block_size) - 3) / 2)
+
+    @classmethod
+    def get_cache_details(cls):
+        return_dict = {
+            'cache_mem_limit': cls.cache_mem_limit,
+            'maximum_el': cls.maximum_el
+        }
+        if cls.current_dmat is not None:
+            return_dict.update({
+                'lmin': cls.current_dmat.lmin,
+                'lmax': cls.current_dmat.lmax,
+                'size': cls.current_dmat.size,
+            })
+        return return_dict
+
+    @classmethod
     def _est_arrsize_limit(cls, maxmem):
-        pass
+        # maxmem = memory limit in bytes
+        return int(np.floor(maxmem / np.zeros(1, dtype=np.float32).nbytes))
 
     @classmethod
-    def _set_wigner(cls, lmax):
+    def _limit_lmin_lmax(cls, lmin, lmax, high=True):
+        """
+        Choose new lmin/lmax respecting array size limits.
+
+        Parameters
+        ----------
+        lmin, lmax: int
+            Desired lmin/lmax.
+        high: bool
+            If the given limits are not possible under memory
+            restrictions, this chooses whether the returned range
+            should include lmin (False) or lmax (True).
+        """
+        max_arrsize = cls._est_arrsize_limit(cls.cache_mem_limit)
+        req_arrsize = DeltaMatrix.estimate_array_size(lmin, lmax)
+        limited = req_arrsize > max_arrsize
+        if limited and high:
+            lmin, _, _ = DeltaMatrix.get_array_params(lmax=lmax, arrsize=max_arrsize)
+        elif limited:
+            _, lmax, _ = DeltaMatrix.get_array_params(lmin=lmin, arrsize=max_arrsize)
+
+        return lmin, lmax
+
+    @classmethod
+    def _set_wigner(cls, lmin, lmax, high=True):
+        """
+        Cache a DeltaMatrix, respecting memory limits.
+
+        If a DeltaMatrix is already cached, it will use that as a starting point.
+        """
+        if lmax > cls.maximum_el:
+            raise ValueError("Cannot construct DeltaMatrix within given memory limits.")
+
+        lmin, lmax = cls._limit_lmin_lmax(lmin, lmax, high=high)
         if (cls.current_dmat is None):
-            cls.current_dmat = DeltaMatrix(lmax)
-        elif (cls.current_dmat.lmax < lmax):
-            cls.current_dmat = DeltaMatrix(lmax, dmat=cls.current_dmat)
+            cls.current_dmat = DeltaMatrix(lmax, lmin=lmin)
+        elif (cls.current_dmat.lmax < lmax) or (cls.current_dmat.lmin > lmin):
+            cls.current_dmat = DeltaMatrix(lmax, lmin=lmin, dmat=cls.current_dmat)
 
     @classmethod
-    def wigner_d(cls, el, m1, m2, theta, lmax=None):
+    def wigner_d(cls, el, m1, m2, theta, lmax=None, lmin=None):
         theta = np.atleast_1d(theta)
+        if lmin is None:
+            lmin = 0
         if lmax is None:
-            lmax = el
-        cls._set_wigner(lmax)
+            _, lmax, _ = DeltaMatrix._get_array_params(
+                lmin=lmin, arrsize=cls._est_arrsize_limit(cls.cache_mem_limit)
+            )
+
+        cls._set_wigner(lmin, lmax)
 
         mp = np.arange(1, el + 1)
         exp_fac = np.exp(1j * mp[None, :] * theta[..., None])
@@ -289,7 +336,7 @@ class HarmonicFunction:
         return val.squeeze()
 
     @classmethod
-    def spin_spherical_harmonic(cls, el, em, spin, theta, phi, lmax=None):
+    def spin_spherical_harmonic(cls, el, em, spin, theta, phi, lmin=None, lmax=None):
         theta = np.asarray(theta)
         phi = np.asarray(phi)
 
@@ -297,7 +344,7 @@ class HarmonicFunction:
             raise ValueError("theta and phi must have the same shape.")
 
         return (-1.)**(em) * np.sqrt((2 * el + 1) / (4 * np.pi))\
-            * np.exp(1j * em * phi) * cls.wigner_d(el, em, -1 * spin, theta, lmax=lmax)
+            * np.exp(1j * em * phi) * cls.wigner_d(el, em, -1 * spin, theta, lmin=lmin, lmax=lmax)
 
     @classmethod
     def clear_dmat(cls):
@@ -305,7 +352,7 @@ class HarmonicFunction:
         cls.current_dmat = None
 
 
-def wigner_d(el, m1, m2, theta, lmax=None):
+def wigner_d(el, m1, m2, theta, lmin=None, lmax=None):
     """
     Evaluate the Wigner-d function (little-d) using cached values at pi/2.
 
@@ -317,9 +364,12 @@ def wigner_d(el, m1, m2, theta, lmax=None):
         Indices of the d-function.
     theta: float or ndarray of float
         Angle argument(s) in radians.
+    lmin: int
+        Precompute the cached DeltaMatrix from some minimum el.
+        (Optional. See notes.)
     lmax: int
-        Precompute the cached Delta matrix up to some maximum el.
-        (Optional. Defaults to el or the maximum el used in the current Python session)
+        Precompute the cached DeltaMatrix up to some maximum el.
+        (Optional. See notes.)
 
     Returns
     -------
@@ -332,11 +382,17 @@ def wigner_d(el, m1, m2, theta, lmax=None):
     Uses eqn 8 of McEwan and Wiaux (2011), which cites:
         A. F. Nikiforov and V. B. Uvarov (1991)
 
+    When lmin/lmax are not set, the default behavior is to cache a DeltaMatrix
+    covering el from 0 to about 540 (so that the cached array is only 200 MiB).
+    This runs in about 0.3 seconds and is only run once.
+
+    If larger el are required, the cached matrix is shifted to cover the larger el.
+
     """
-    return HarmonicFunction.wigner_d(el, m1, m2, theta, lmax)
+    return HarmonicFunction.wigner_d(el, m1, m2, theta, lmin=lmin, lmax=lmax)
 
 
-def spin_spherical_harmonic(el, em, spin, theta, phi, lmax=None):
+def spin_spherical_harmonic(el, em, spin, theta, phi, lmin=None, lmax=None):
     """
     Evaluate the spin-weighted spherical harmonic.
 
@@ -352,9 +408,12 @@ def spin_spherical_harmonic(el, em, spin, theta, phi, lmax=None):
         Colatitude(s) to evaluate to, in radians.
     phi: ndarray or float
         Azimuths to evaluate to, in radians.
+    lmin: int
+        Precompute the cached DeltaMatrix from some minimum el.
+        (Optional. See notes on wigner_d.)
     lmax: int
         Precompute the cached Delta matrix up to some maximum el.
-        (Optional. Defaults to el or the maximum el used in the current Python session)
+        (Optional. See notes on wigner_d.)
 
     Returns
     -------
@@ -367,7 +426,7 @@ def spin_spherical_harmonic(el, em, spin, theta, phi, lmax=None):
     Uses eqns (2) and (7) of McEwan and Wiaux (2011).
     If theta/phi are arrays, they must have the same shape.
     """
-    return HarmonicFunction.spin_spherical_harmonic(el, em, spin, theta, phi, lmax)
+    return HarmonicFunction.spin_spherical_harmonic(el, em, spin, theta, phi, lmin=lmin, lmax=lmax)
 
 
 def get_cached_dmat():
@@ -378,6 +437,51 @@ def get_cached_dmat():
 def clear_cached_dmat():
     """Delete cached DeltaMatrix."""
     HarmonicFunction.clear_dmat()
+
+
+def set_cache_mem_limit(maxmem):
+    """
+    Set the memory limit for cached DeltaMatrix values.
+
+    Defaults to 200 MiB.
+
+    Also estimates the maximum el that can be contained in this limit by itself.
+
+    Parameters
+    ----------
+    maxmem: float
+        Memory usage limit in MiB for cached DeltaMatrix array.
+        Defaults to 200, corresponding with about lmax ~ 540 for lmin = 0.
+    """
+    HarmonicFunction.set_cache_mem_limit(maxmem)
+
+
+def get_cache_details():
+    """
+    Details of the cached DeltaMatrix.
+
+    Returns
+    -------
+    dict:
+        A dictionary containing:
+            * cache_memory_limit
+                Limit in MiB of the cached DeltaMatrix
+            * maximum_el
+                Maximum el mode that can be supported by itself
+                in the cached DeltaMatrix, under the current limit.
+
+                This is not the same as lmax. Each el mode "block"
+                in the matrix consists of (el + 1) * (el + 2) / 2 floats.
+                This is the maximum el whose block can fit in the memory limit.
+        The following will be included only if a DeltaMatrix is cached:
+            * lmin
+                Minimum el mode in the cached DeltaMatrix
+            * lmax
+                Maximum el mode in the cached DeltaMatrix
+            * size
+                Number of floats in the cached DeltaMatrix
+    """
+    return HarmonicFunction.get_cache_details()
 
 
 def _fac(val):

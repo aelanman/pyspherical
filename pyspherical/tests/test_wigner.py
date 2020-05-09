@@ -40,7 +40,7 @@ def test_transform_eval_compare(mw_sampling, slm):
     test1 = pysh.inverse_transform(flm, thetas=theta, phis=phi, spin=spin)
     test2 = amp * \
         pysh.spin_spherical_harmonic(
-            el, em, spin, gtheta, gphi)
+            el, em, spin, gtheta, gphi, lmax=lmax)
     test3 = amp * pysh.wigner.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
     assert np.allclose(test1, test2, atol=1e-10)
@@ -55,7 +55,7 @@ def test_wigner_symm():
     lmax = 15
 
     def dl(el, m1, m2, theta):
-        return pysh.wigner_d(el, m1, m2, theta, lmax)
+        return pysh.wigner_d(el, m1, m2, theta, lmax=lmax)
 
     Nth = 5
     for th in np.linspace(0, np.pi, Nth):
@@ -63,9 +63,9 @@ def test_wigner_symm():
             for m in range(-ll, ll + 1):
                 for mm in range(-ll, ll + 1):
                     val1 = dl(ll, m, mm, th)
-                    assert val1 == (-1)**(m - mm) * dl(ll, -m, -mm, th)
-                    assert val1 == (-1)**(m - mm) * dl(ll, mm, m, th)
-                    assert val1 == dl(ll, -mm, -m, th)
+                    assert np.isclose(val1, (-1)**(m - mm) * dl(ll, -m, -mm, th))
+                    assert np.isclose(val1, (-1)**(m - mm) * dl(ll, mm, m, th))
+                    assert np.isclose(val1, dl(ll, -mm, -m, th))
                     assert np.isclose(dl(ll, m, mm, -th),
                                       dl(ll, mm, m, th), atol=1e-10)
                     assert np.isclose(
@@ -106,13 +106,13 @@ def test_delta_matrix_inits():
 
 
 @pytest.mark.parametrize(
-        ('err', 'lmin', 'lmax', 'arrsize'),
-            [
-                (False, 0, 15, 816),
-                (False, 4, 9, 200),
-                (True, 4, 9, 157)
-            ]
-        )
+    ('err', 'lmin', 'lmax', 'arrsize'),
+    [
+        (False, 0, 15, 816),
+        (False, 4, 9, 200),
+        (True, 4, 9, 157)
+    ]
+)
 def test_dmat_params(err, lmin, lmax, arrsize):
     # Getting missing parameter from the set lmin, lmax, arrsize
     _get_array_params = pysh.DeltaMatrix._get_array_params
@@ -122,6 +122,27 @@ def test_dmat_params(err, lmin, lmax, arrsize):
         assert _get_array_params(lmin, lmax, None) == (lmin, lmax, arrsize)
     else:
         with pytest.raises(ValueError, match="Invalid"):
-            _get_array_params(None, lmax, arrsize)
+            _get_array_params(None, lmax, arrsize, strict=True)
         with pytest.raises(ValueError, match="Invalid"):
-            _get_array_params(lmin, None, arrsize)
+            _get_array_params(lmin, None, arrsize, strict=True)
+
+
+@pytest.mark.parametrize(
+    ('lmin', 'lmax', 'arrsize'),
+    [
+        (0, 15, 400),
+        (4, 9, 70),
+        (4, 9, 157)
+    ]
+)
+def test_dmat_params_nonstrict(lmin, lmax, arrsize):
+    # Ensure the returned size is smaller than the limits for various lmin/lmax.
+    _get_array_params = pysh.DeltaMatrix._get_array_params
+
+    # Choose a new lmin:
+    lmin_new, _, arrsize_new = _get_array_params(lmax=lmax, arrsize=arrsize)
+    assert (lmin_new >= lmin) and (arrsize_new <= arrsize)
+
+    # Choose a new lmax:
+    _, lmax_new, arrsize_new = _get_array_params(lmin=lmin, arrsize=arrsize)
+    assert (lmax_new <= lmax) and (arrsize_new <= arrsize)

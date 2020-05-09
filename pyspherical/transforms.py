@@ -75,10 +75,13 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
 
 def _dmm_to_flm(dmm, lmax, spin):
     flm = np.zeros(lmax**2, dtype=complex)
-    HarmonicFunction._set_wigner(lmax + 1)
+    HarmonicFunction._set_wigner(0, lmax + 1)
     wig_d = HarmonicFunction.current_dmat
 
     for el in range(spin, lmax):
+        if el >= wig_d.lmax:
+            HarmonicFunction._set_wigner(el, lmax + 1)
+            wig_d = HarmonicFunction.current_dmat
         prefac = np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
             ind = unravel_lm(el, m)
@@ -223,10 +226,12 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
 def _flm_to_fmm(flm, lmax, spin):
     # Transform components flm to Fmm (Fourier-transformed data).
     fmm = np.zeros(((2 * lmax - 1), (2 * lmax - 1)), dtype=complex)
-    HarmonicFunction._set_wigner(lmax + 1)
+    HarmonicFunction._set_wigner(0, lmax + 1)
     wig_d = HarmonicFunction.current_dmat
-
     for li, el in enumerate(range(spin, lmax)):
+        if el >= wig_d.lmax:
+            HarmonicFunction._set_wigner(el, lmax + 1)
+            wig_d = HarmonicFunction.current_dmat
         prefac = (-1)**spin * np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
             prefac2 = (1j)**(-m - spin) * flm[unravel_lm(el, m)]
