@@ -17,7 +17,7 @@ setup_args = {
     'version': '0.0.1',
     'include_package_data': True,
     'test_suite': 'pytest',
-    'tests_require': ['pytest'],
+    'tests_require': ['pytest', 'sympy'],
     'setup_requires': ['pytest-runner'],
     'install_requires': ['numpy', 'numba', 'scipy'],
     'classifiers': ['Development Status :: 3 - Alpha',

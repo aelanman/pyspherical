@@ -1,5 +1,9 @@
 # pyspherical
 
+
+![tests](https://github.com/RadioAstronomySoftwareGroup/pyspherical/workflows/Tests/badge.svg?branch=master)
+[![codecov](https://codecov.io/gh/aelanman/pyspherical/branch/master/graph/badge.svg)](https://codecov.io/gh/aelanman/pyspherical)
+
 Implements the fast spin-weighted spherical harmonic transform methods of McEwan and Wiaux (2011) [1],
 and evaluates Wigner little-d functions using the recursion relations of Trapani and Navaza (2006) [2]. Transforms are
 supported for any spherical sampling pattern with equally-spaced samples of azimuth at each latitude (iso-latitude sampling).
@@ -12,6 +16,10 @@ for speed.
 * `numpy`
 * `numba`
 * `scipy`
+
+Optionally, for tests:
+* `sympy`
+* `pytest`
 
 ## Installation
 
