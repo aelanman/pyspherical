@@ -52,6 +52,10 @@ def test_wigner_symm():
     # Test symmetries of the Wigner-d function.
     # Appendix of Prezeau and Reinecke (2010)
 
+    # Test error case:
+    with pytest.raises(ValueError, match='el 3 is less than lmin'):
+        pysh.wigner_d(3, 0, 0, 0.5, lmin=5)
+
     lmax = 15
 
     def dl(el, m1, m2, theta):

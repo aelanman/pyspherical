@@ -318,6 +318,9 @@ class HarmonicFunction:
         if lmax is None:
             lmax = el
 
+        if el < lmin:
+            raise ValueError(f"el {el} is less than lmin {lmin}")
+
         cls._set_wigner(lmin, lmax)
 
         mp = np.arange(1, el + 1)

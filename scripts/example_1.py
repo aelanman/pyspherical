@@ -15,7 +15,7 @@ import pyspherical as pysh
 lmax = 10
 spin = 1
 
-Npeaks = 5
+Npeaks = 7
 
 Ntheta = 21
 Nphi = 31
@@ -35,7 +35,7 @@ for ii in range(Npeaks):
     em = peak_ems[ii]
     el = peak_els[ii]
     dat += peak_amps[ii]\
-        * pysh.wigner.spin_spherical_harmonic(el, em, spin, gtheta, gphi, lmax=lmax)
+        * pysh.spin_spherical_harmonic(el, em, spin, gtheta, gphi, lmax=lmax)
 
 # Perform forward transform from data to harmonic components.
 
@@ -53,6 +53,7 @@ ax1.plot(flm.real, label='Result')
 indices = [pysh.unravel_lm(peak_els[ii], peak_ems[ii]) for ii in range(Npeaks)]
 ax1.scatter(indices, peak_amps, marker='o', color='r', label='Expected')
 
+fig.suptitle(f"Spin {spin}", fontsize=14)
 ax0.set_title("Re[Data]")
 ax0.set_xlabel(r'$\theta$ [deg]')
 ax0.set_ylabel(r'$\phi$ [deg]')
