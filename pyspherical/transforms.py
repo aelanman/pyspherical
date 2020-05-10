@@ -210,7 +210,9 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
         raise ValueError("Data shapes inconsistent:"
                          "\n\tdat.shape = {}"
                          "\n\tphis.shape = {}"
-                         "\n\tthetas.shape = {}".format(str(dat.shape), str(phis.shape), str(thetas.shape)))
+                         "\n\tthetas.shape = {}".format(
+                             str(dat.shape), str(phis.shape), str(thetas.shape))
+                         )
 
     if grid:
         return _do_fwd_transform_on_grid(dat, phis, thetas, lmax, lmin, fax, tax, spin)
@@ -365,12 +367,14 @@ def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt
 
     Notes
     -----
-    The sampling given through phi/theta can either be the axes of a grid (i.e., identical phi sampling
-    for all thetas) or specify the individual phi/theta positions for each sample. In the first case,
-    dat.shape = (phi.size, theta.size). In the latter case, dat.shape = phi.shape = theta.shape.
+    The sampling given through phi/theta can either be the axes of a grid
+    (i.e., identical phi sampling for all thetas) or specify the individual phi/theta positions
+    for each sample. In the first case, dat.shape = (phi.size, theta.size). In the latter case,
+    dat.shape = phi.shape = theta.shape.
 
-    This function cannot be used to evaluate the spherical harmonic components to arbitrary positions on
-    the sphere. For that, the function :meth:`HarmonicFunction.spin_spherical_harmonic()` is provided.
+    This function cannot be used to evaluate the spherical harmonic components to arbitrary
+    positions on the sphere. For that, the function
+    :meth:`HarmonicFunction.spin_spherical_harmonic()` is provided.
     """
     if lmax is None:
         lmax = int(np.sqrt(flm.size))

@@ -103,7 +103,8 @@ class DeltaMatrix:
     Only stores values for m1, m2 >= 0. Other values are returned by symmetry relations.
 
     Based on the methods in:
-        S, Trapani, and Navaza J. Acta Crystallographica Section A, vol. 62, no. 4, 2006, pp. 262–69.
+        S, Trapani, and Navaza J. Acta Crystallographica Section A,
+        vol. 62, no. 4, 2006, pp. 262–69.
 
 
     Parameters

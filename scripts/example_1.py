@@ -34,7 +34,8 @@ dat = np.zeros(gtheta.shape, dtype=complex)
 for ii in range(Npeaks):
     em = peak_ems[ii]
     el = peak_els[ii]
-    dat += peak_amps[ii] * pysh.wigner.spin_spherical_harmonic(el, em, spin, gtheta, gphi, lmax=lmax)
+    dat += peak_amps[ii]\
+        * pysh.wigner.spin_spherical_harmonic(el, em, spin, gtheta, gphi, lmax=lmax)
 
 # Perform forward transform from data to harmonic components.
 
