@@ -30,7 +30,6 @@ def mw_sum_of_harms():
         for ii in range(Npeaks):
             em = peak_ems[ii]
             el = peak_els[ii]
-            # TODO -- Go back to using sph_harm for spin 0, since we don't need spin nonzero. It's more stable.
             dat += peak_amps[ii] * pysh.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
         return dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps)
@@ -188,8 +187,11 @@ def test_loop_limited_mem(spin, mw_sum_of_harms):
     flm3 = pysh.forward_transform(res, phi, theta, lmax, spin=spin)
     res2 = pysh.inverse_transform(flm3, phi, theta, lmax, spin=spin)
 
+    details = pysh.get_cache_details()
+
+    # Reset cache limit.
+    pysh.set_cache_mem_limit(200)
+
     assert np.allclose(flm3, flm2)
     assert np.allclose(res, res2, atol=1e-4)
-
-    details = pysh.get_cache_details()
     assert details['size'] * np.zeros(1).nbytes < details['cache_mem_limit']
