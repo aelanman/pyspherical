@@ -17,15 +17,17 @@ for speed.
 
 `pyspherical` may be installed by cloning the repository and running setup.py:
 ```
-git clone https://github.com/aelanman/pyspherical.git
-pip install .
+> git clone https://github.com/aelanman/pyspherical.git
+> python setup.py install
+# or
+> pip install .
 ```
 
 ## Quick Start
 
 Tests can be run using `pytest` to confirm that the installation was successful.
 
-An example script `scripts/example_1.py` demonstrates how to use some of the available evaluation and transform functions.
+An example script `scripts/example_1.py` demonstrates how to use some of the available evaluation and transform functions. Another script `scripts/example_2.py` plots the spherical harmonics for el < 4. Further documentation is under development.
 
 
 ## References
