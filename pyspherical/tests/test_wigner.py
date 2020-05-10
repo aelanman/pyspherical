@@ -63,6 +63,7 @@ def test_wigner_symm():
             for m in range(-ll, ll + 1):
                 for mm in range(-ll, ll + 1):
                     val1 = dl(ll, m, mm, th)
+                    print(ll, m, mm)
                     assert np.isclose(val1, (-1)**(m - mm) * dl(ll, -m, -mm, th))
                     assert np.isclose(val1, (-1)**(m - mm) * dl(ll, mm, m, th))
                     assert np.isclose(val1, dl(ll, -mm, -m, th))
@@ -146,3 +147,20 @@ def test_dmat_params_nonstrict(lmin, lmax, arrsize):
     # Choose a new lmax:
     _, lmax_new, arrsize_new = _get_array_params(lmin=lmin, arrsize=arrsize)
     assert (lmax_new <= lmax) and (arrsize_new <= arrsize)
+
+
+def test_dmat_largeL():
+    # Check that DeltaMatrix elements are accurate for some large el,
+    # compared with the precise results of sympy.
+    # This test may be slow.
+
+    pytest.importorskip('sympy')
+    from sympy.physics.quantum.spin import Rotation
+    el, m, mp = 200, 77, 59
+
+    wigd = Rotation.d(el, m, mp, np.pi / 2)
+    val = complex(wigd.doit())
+
+    pysh.wigner.HarmonicFunction._set_wigner(180, 210)
+
+    assert np.isclose(val.real, pysh.wigner_d(el, m, mp, np.pi / 2), atol=1e-4)

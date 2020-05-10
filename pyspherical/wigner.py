@@ -315,9 +315,7 @@ class HarmonicFunction:
         if lmin is None:
             lmin = 0
         if lmax is None:
-            _, lmax, _ = DeltaMatrix._get_array_params(
-                lmin=lmin, arrsize=cls._est_arrsize_limit(cls.cache_mem_limit)
-            )
+            lmax = el
 
         cls._set_wigner(lmin, lmax)
 

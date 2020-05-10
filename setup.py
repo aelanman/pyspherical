@@ -25,7 +25,7 @@ setup_args = {
                     'License :: OSI Approved :: MIT License',
                     'Programming Language :: Python :: 3.6',
                     'Topic :: Scientific/Engineering :: Physics'],
-    'keywords': 'spin spherical harmonic transforms'
+    'keywords': 'spin spherical harmonic transforms wigner'
 }
 
 if __name__ == '__main__':
