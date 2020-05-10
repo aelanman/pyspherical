@@ -6,5 +6,6 @@ dependencies:
   - numpy
   - sympy
   - pytest
+  - pytest-cov
   - scipy
   - numba
