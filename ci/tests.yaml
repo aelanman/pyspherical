@@ -1,11 +1,10 @@
 name: tests
 channels:
-  - conda-forge
   - defaults
 dependencies:
   - numpy
+  - scipy
   - sympy
   - pytest
   - pytest-cov
-  - scipy
   - numba
