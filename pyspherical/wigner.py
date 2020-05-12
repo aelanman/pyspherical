@@ -113,13 +113,20 @@ class DeltaMatrix:
         Maximum multipole mode. (Optional)
         Defaults to sqrt(len(flm)).
     lmin: int
-        Currently unused.
         Minimum multipole mode to compute. (Optional, default 0)
+    dmat: DeltaMatrix
+        Initialize using the data in another DeltaMatrix to start.
+        This will speed up computation for larger el, if dmat.lmax <= lmax.
+    dtype: type
+        Provide a dtype for the array.
+        This defaults to 32-bit floats, which will be good to about four decimal
+        places.
     """
 
-    def __init__(self, lmax, lmin=0, dmat=None):
+    def __init__(self, lmax, lmin=0, dmat=None, dtype=np.float32):
         arrsize = self.estimate_array_size(lmin, lmax)
-        self._arr = np.empty(arrsize, dtype=np.float32)
+        self._arr = np.empty(arrsize, dtype=dtype)
+        self.dtype = dtype
         self.lmax = lmax
         self.lmin = lmin
         self.size = arrsize
@@ -295,23 +302,26 @@ class HarmonicFunction:
         return lmin, lmax
 
     @classmethod
-    def _set_wigner(cls, lmin, lmax, high=True):
+    def _set_wigner(cls, lmin, lmax, high=True, dtype=None):
         """
         Cache a DeltaMatrix, respecting memory limits.
 
         If a DeltaMatrix is already cached, it will use that as a starting point.
+
+        Will recompute everything if the data type changes.
         """
         if lmax > cls.maximum_el:
             raise ValueError("Cannot construct DeltaMatrix within given memory limits.")
 
+        dtype_set = (dtype is not None)
         lmin, lmax = cls._limit_lmin_lmax(lmin, lmax, high=high)
-        if (cls.current_dmat is None):
-            cls.current_dmat = DeltaMatrix(lmax, lmin=lmin)
+        if (cls.current_dmat is None or (dtype_set and cls.current_dmat.dtype != dtype)):
+            cls.current_dmat = DeltaMatrix(lmax, lmin=lmin, dtype=dtype)
         elif (cls.current_dmat.lmax < lmax) or (cls.current_dmat.lmin > lmin):
-            cls.current_dmat = DeltaMatrix(lmax, lmin=lmin, dmat=cls.current_dmat)
+            cls.current_dmat = DeltaMatrix(lmax, lmin=lmin, dmat=cls.current_dmat, dtype=dtype)
 
     @classmethod
-    def wigner_d(cls, el, m1, m2, theta, lmax=None, lmin=None):
+    def wigner_d(cls, el, m1, m2, theta, lmax=None, lmin=None, double_prec=None):
         theta = np.atleast_1d(theta)
         if lmin is None:
             lmin = 0
@@ -321,7 +331,13 @@ class HarmonicFunction:
         if el < lmin:
             raise ValueError(f"el {el} is less than lmin {lmin}")
 
-        cls._set_wigner(lmin, lmax)
+        dtype = None
+        if double_prec is not None:
+            if double_prec:
+                dtype = np.float64
+            else:
+                dtype = np.float32
+        cls._set_wigner(lmin, lmax, dtype=dtype)
 
         mp = np.arange(1, el + 1)
         exp_fac = np.exp(1j * mp[None, :] * theta[..., None])
@@ -338,7 +354,8 @@ class HarmonicFunction:
         return val.squeeze()
 
     @classmethod
-    def spin_spherical_harmonic(cls, el, em, spin, theta, phi, lmin=None, lmax=None):
+    def spin_spherical_harmonic(cls, el, em, spin, theta, phi,
+                                lmin=None, lmax=None, double_prec=None):
         theta = np.asarray(theta)
         phi = np.asarray(phi)
 
@@ -346,7 +363,9 @@ class HarmonicFunction:
             raise ValueError("theta and phi must have the same shape.")
 
         return (-1.)**(em) * np.sqrt((2 * el + 1) / (4 * np.pi))\
-            * np.exp(1j * em * phi) * cls.wigner_d(el, em, -1 * spin, theta, lmin=lmin, lmax=lmax)
+            * np.exp(1j * em * phi) * cls.wigner_d(el, em, -1 * spin,
+                                                   theta, lmin=lmin, lmax=lmax,
+                                                   double_prec=double_prec)
 
     @classmethod
     def clear_dmat(cls):
@@ -354,7 +373,7 @@ class HarmonicFunction:
         cls.current_dmat = None
 
 
-def wigner_d(el, m1, m2, theta, lmin=None, lmax=None):
+def wigner_d(el, m1, m2, theta, lmin=None, lmax=None, double_prec=None):
     """
     Evaluate the Wigner-d function (little-d) using cached values at pi/2.
 
@@ -372,6 +391,13 @@ def wigner_d(el, m1, m2, theta, lmin=None, lmax=None):
     lmax: int
         Precompute the cached DeltaMatrix up to some maximum el.
         (Optional. See notes.)
+    double_prec: bool or None
+        Compute the DeltaMatrix using doubles instead of singles.
+        If set, this will enforce that the cached DeltaMatrix is in
+        either single precision (False) or double (True).
+        Otherwise, the cached DeltaMatrix will be kept at whatever
+        precision it had previously, or will be made in single precision.
+        Default None
 
     Returns
     -------
@@ -385,16 +411,19 @@ def wigner_d(el, m1, m2, theta, lmin=None, lmax=None):
         A. F. Nikiforov and V. B. Uvarov (1991)
 
     When lmin/lmax are not set, the default behavior is to cache a DeltaMatrix
-    covering el from 0 to about 540 (so that the cached array is only 200 MiB).
-    This runs in about 0.3 seconds and is only run once.
+    covering 0 to about el in el.
 
-    If larger el are required, the cached matrix is shifted to cover the larger el.
+    If larger el are required, the cached matrix is expanded.
 
+    The total matrix size is limited so the cache doesn't exceed 200 MiB.
+    This limit can be changed.
     """
-    return HarmonicFunction.wigner_d(el, m1, m2, theta, lmin=lmin, lmax=lmax)
+    return HarmonicFunction.wigner_d(
+        el, m1, m2, theta, lmin=lmin, lmax=lmax, double_prec=double_prec
+    )
 
 
-def spin_spherical_harmonic(el, em, spin, theta, phi, lmin=None, lmax=None):
+def spin_spherical_harmonic(el, em, spin, theta, phi, lmin=None, lmax=None, double_prec=None):
     """
     Evaluate the spin-weighted spherical harmonic.
 
@@ -416,6 +445,10 @@ def spin_spherical_harmonic(el, em, spin, theta, phi, lmin=None, lmax=None):
     lmax: int
         Precompute the cached Delta matrix up to some maximum el.
         (Optional. See notes on wigner_d.)
+    double_prec: bool or None
+        Compute the DeltaMatrix using doubles instead of singles.
+        (See docstring for wigner_d for details).
+        Default None
 
     Returns
     -------
@@ -428,7 +461,9 @@ def spin_spherical_harmonic(el, em, spin, theta, phi, lmin=None, lmax=None):
     Uses eqns (2) and (7) of McEwan and Wiaux (2011).
     If theta/phi are arrays, they must have the same shape.
     """
-    return HarmonicFunction.spin_spherical_harmonic(el, em, spin, theta, phi, lmin=lmin, lmax=lmax)
+    return HarmonicFunction.spin_spherical_harmonic(
+        el, em, spin, theta, phi, lmin=lmin, lmax=lmax, double_prec=double_prec
+    )
 
 
 def get_cached_dmat():
