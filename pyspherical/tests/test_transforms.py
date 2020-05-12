@@ -11,7 +11,7 @@ import pyspherical as pysh
 
 @pytest.fixture
 def mw_sum_of_harms():
-    lmax = 10
+    lmax = 15
 
     theta, phi = pysh.utils.get_grid_sampling(lmax)
 
@@ -28,9 +28,13 @@ def mw_sum_of_harms():
         peak_amps = np.random.uniform(10, 20, Npeaks)
         dat = np.zeros(gtheta.shape, dtype=complex)
         for ii in range(Npeaks):
+            print(ii)
             em = peak_ems[ii]
             el = peak_els[ii]
-            dat += peak_amps[ii] * pysh.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
+            if spin == 0:
+                dat += peak_amps[ii] * sph_harm(em, el, gphi, gtheta)
+            else:
+                dat += peak_amps[ii] * pysh.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
         return dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps)
 
@@ -116,9 +120,10 @@ def test_loop_mw_nongrid(spin, mw_sum_of_harms):
 
     assert np.allclose(dat.flatten(), res, atol=1)
 
-
-@pytest.mark.skip(reason="Unexplained deviation in this case. Needs work.")
-def test_loop_diffphi_nongrid():
+# Slow
+@pytest.mark.parametrize('offsets', [True, False])
+@pytest.mark.parametrize('em', range(1, 15, 4))
+def test_loop_diffphi_nongrid(offsets, em):
     # Make a sphere with different phi sampling on each latitude.
     # Evaluate a function on the sphere and do the loop test.
 
@@ -128,10 +133,14 @@ def test_loop_diffphi_nongrid():
     Nt = 81
 
     # Number of phi samples at each latitude
-    Nf = [75] * 26 + [77] * 28 + [74] * 27
+    Nfmean = 90
+    Nf = [Nfmean - 1] * 26 + [Nfmean] * 28 + [Nfmean - 1] * 27
 
     # Put an offset in phi at each latitude.
-    offsets = [np.random.uniform(0, np.pi / (nf)) for nf in Nf]
+    if offsets:
+        offsets = [np.random.uniform(0, np.pi / (nf)) for nf in Nf]
+    else:
+        offsets = np.zeros(Nt)
     thetas, phis = [], []
 
     dth = np.pi / (2 * Nt - 1)
@@ -140,22 +149,21 @@ def test_loop_diffphi_nongrid():
     for ti, th, in enumerate(base_theta):
         nf = Nf[ti]
         thetas.extend([th] * nf)
-        cur_phi = (np.linspace(0, 2 * np.pi, nf) + offsets[ti]) % (2 * np.pi)
+        cur_phi = (np.linspace(0, 2 * np.pi, nf, endpoint=False) + offsets[ti]) % (2 * np.pi)
         phis.extend(cur_phi.tolist())
 
     # Evaluate a function on these points.
     el = 17
-    em = 3
+    em = em
     amp = 50
-
-    dat = amp * sph_harm(em, el, phis, thetas)
+    dat = amp * pysh.spin_spharm_goldberg(0, el, em, thetas, phis)
 
     flm = pysh.forward_transform(dat, phis, thetas, lmax=lmax)
     res = pysh.inverse_transform(flm, phis, thetas, lmax=lmax)
 
-    # There is a regular pattern to the remaining deviation between dat and res.
     # The results shouldn't match up perfectly, because the sampling isn't exact and
     # it is band-limited, but it's unclear how reversible this should be.
+    # This is set with a very high tolerance due to error near the phi = 0.
     tol = 1.0
     assert np.allclose(dat, res, atol=tol)
 

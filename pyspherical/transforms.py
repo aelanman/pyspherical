@@ -137,13 +137,18 @@ def _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
     # phi to m, per ring
     dm_th = np.zeros((2 * lmax - 1, Nlats), dtype=complex)
 
+    em = np.fft.ifftshift(np.arange(-(lmax - 1), lmax))
     for th_i, th in enumerate(un_thetas):
         ring = lat_ind == th_i
         dat_i = dat[ring]
-
         Nf = dat_i.size
         dm_th[:, th_i] = resize_axis(np.fft.fft(
             dat_i) / Nf, (2 * lmax - 1), mode='zero')
+        # Apply phase offset when the ring doesn't start at phi = 0
+        phase = np.exp(-1j * em * np.min(np.abs(phis[ring])))
+        dm_th[:, th_i] *= phase
+
+    print("Nongrid")
 
     # theta to m'
     dth = np.diff(un_thetas)
@@ -313,10 +318,9 @@ def _do_inv_transform_nongrid(flm, phis, thetas, lmax, lmin=0, spin=0):
     else:
         raise NotImplementedError(
             "Non-uniform latitude spacing is not yet supported.")
-
+    print("Nongrid")
     # Transform m to phi, per ring.
     #   Need to apply a phase offset if the 0th index is not at phi = 0
-
     em = np.fft.ifftshift(np.arange(-(lmax - 1), lmax))
     dat = np.zeros(phis.size, dtype=complex)
     for th_i, th in enumerate(un_thetas):
