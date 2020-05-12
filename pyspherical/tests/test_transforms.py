@@ -1,7 +1,6 @@
 
 import numpy as np
 import pytest
-from scipy.special import sph_harm
 
 import pyspherical as pysh
 
@@ -31,10 +30,7 @@ def mw_sum_of_harms():
             print(ii)
             em = peak_ems[ii]
             el = peak_els[ii]
-            if spin == 0:
-                dat += peak_amps[ii] * sph_harm(em, el, gphi, gtheta)
-            else:
-                dat += peak_amps[ii] * pysh.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
+            dat += peak_amps[ii] * pysh.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
         return dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps)
 
