@@ -273,12 +273,15 @@ class HarmonicFunction:
         return return_dict
 
     @classmethod
-    def _est_arrsize_limit(cls, maxmem):
+    def _est_arrsize_limit(cls, maxmem, double=False):
         # maxmem = memory limit in bytes
-        return int(np.floor(maxmem / np.zeros(1, dtype=np.float32).nbytes))
+        dtype = np.float32
+        if double:
+            dtype = np.float64
+        return int(np.floor(maxmem / np.zeros(1, dtype=dtype).nbytes))
 
     @classmethod
-    def _limit_lmin_lmax(cls, lmin, lmax, high=True):
+    def _limit_lmin_lmax(cls, lmin, lmax, high=True, dtype=None):
         """
         Choose new lmin/lmax respecting array size limits.
 
@@ -291,7 +294,11 @@ class HarmonicFunction:
             restrictions, this chooses whether the returned range
             should include lmin (False) or lmax (True).
         """
-        max_arrsize = cls._est_arrsize_limit(cls.cache_mem_limit)
+        if dtype is np.float64:
+            double = True
+        else:
+            double = False
+        max_arrsize = cls._est_arrsize_limit(cls.cache_mem_limit, double=double)
         req_arrsize = DeltaMatrix.estimate_array_size(lmin, lmax)
         limited = req_arrsize > max_arrsize
         if limited and high:
@@ -314,7 +321,7 @@ class HarmonicFunction:
             raise ValueError("Cannot construct DeltaMatrix within given memory limits.")
 
         dtype_set = (dtype is not None)
-        lmin, lmax = cls._limit_lmin_lmax(lmin, lmax, high=high)
+        lmin, lmax = cls._limit_lmin_lmax(lmin, lmax, high=high, dtype=dtype)
         if (cls.current_dmat is None or (dtype_set and cls.current_dmat.dtype != dtype)):
             cls.current_dmat = DeltaMatrix(lmax, lmin=lmin, dtype=dtype)
         elif (cls.current_dmat.lmax < lmax) or (cls.current_dmat.lmin > lmin):
