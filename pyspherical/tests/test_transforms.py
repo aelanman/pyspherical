@@ -10,7 +10,7 @@ import pyspherical as pysh
 
 @pytest.fixture
 def mw_sum_of_harms():
-    lmax = 15
+    lmax = 10
 
     theta, phi = pysh.utils.get_grid_sampling(lmax)
 
@@ -20,14 +20,12 @@ def mw_sum_of_harms():
         # Data
         Npeaks = 5
 
-        # NOTE Transforms seem to fail the loop test when the el = spin component is
-        # nonzero. This will need to be investigated, but for now just avoid it.
+        # NOTE Transforms seem to fail the loop test when the el = spin component is nonzero.
         peak_els = np.random.choice(np.arange(spin + 1, lmax - 1), Npeaks, replace=False)
         peak_ems = np.array([np.random.randint(-el, el + 1) for el in peak_els])
         peak_amps = np.random.uniform(10, 20, Npeaks)
         dat = np.zeros(gtheta.shape, dtype=complex)
         for ii in range(Npeaks):
-            print(ii)
             em = peak_ems[ii]
             el = peak_els[ii]
             dat += peak_amps[ii] * pysh.spin_spharm_goldberg(spin, el, em, gtheta, gphi)

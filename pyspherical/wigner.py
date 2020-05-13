@@ -558,6 +558,8 @@ def spin_spharm_goldberg(spin, el, em, theta, phi):
     If theta/phi are arrays, they must have the same shape.
 
     For nonzero spin, this function is unstable when theta/2 is close to a multiple of pi.
+
+    Also at risk of an integer overflow for el > 10.
     """
     theta = np.asarray(theta)
     phi = np.asarray(phi)
