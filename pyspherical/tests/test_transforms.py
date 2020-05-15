@@ -168,7 +168,7 @@ def test_loop_limited_mem(spin, mw_sum_of_harms):
 
     dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms(spin)
 
-    lmax = 40
+    lmax = 41
 
     flm = pysh.forward_transform(dat, phi, theta, lmax, spin=spin)
     res = pysh.inverse_transform(flm, phi, theta, lmax, spin=spin)

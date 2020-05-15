@@ -212,7 +212,7 @@ class DeltaMatrix:
         """
         (l, m1, m2) = index
         if l < self.lmin:
-            raise ValueError("l < lmin. Need to re-evalate delta matrix")
+            raise ValueError("l < lmin. Need to re-evaluate delta matrix")
         return _access_element(l, m1, m2, self._arr, self.lmin)
 
 
@@ -254,8 +254,8 @@ class HarmonicFunction:
         if cls.current_dmat is not None and cls.current_dmat._arr.nbytes > newlim:
             raise ValueError(f"Cached DeltaMatrix exceeds new limit {maxmem} MiB."
                              " Clear it using clear_cached_dmat() first.")
-        cls.cache_memory_limit = newlim
-        max_block_size = cls._est_arrsize_limit(cls.cache_memory_limit)
+        cls.cache_mem_limit = newlim
+        max_block_size = cls._est_arrsize_limit(cls.cache_mem_limit)
         cls.maximum_el = np.floor((np.sqrt(1 + 8 * max_block_size) - 3) / 2)
 
     @classmethod
@@ -281,7 +281,7 @@ class HarmonicFunction:
         return int(np.floor(maxmem / np.zeros(1, dtype=dtype).nbytes))
 
     @classmethod
-    def _limit_lmin_lmax(cls, lmin, lmax, high=True, dtype=None):
+    def _limit_lmin_lmax(cls, lmin, lmax, high, dtype=None):
         """
         Choose new lmin/lmax respecting array size limits.
 
@@ -302,9 +302,9 @@ class HarmonicFunction:
         req_arrsize = DeltaMatrix.estimate_array_size(lmin, lmax)
         limited = req_arrsize > max_arrsize
         if limited and high:
-            lmin, _, _ = DeltaMatrix.get_array_params(lmax=lmax, arrsize=max_arrsize)
+            lmin, _, _ = DeltaMatrix._get_array_params(lmax=lmax, arrsize=max_arrsize)
         elif limited:
-            _, lmax, _ = DeltaMatrix.get_array_params(lmin=lmin, arrsize=max_arrsize)
+            _, lmax, _ = DeltaMatrix._get_array_params(lmin=lmin, arrsize=max_arrsize)
 
         return lmin, lmax
 
@@ -319,7 +319,6 @@ class HarmonicFunction:
         """
         if lmax > cls.maximum_el:
             raise ValueError("Cannot construct DeltaMatrix within given memory limits.")
-
         dtype_set = (dtype is not None)
         lmin, lmax = cls._limit_lmin_lmax(lmin, lmax, high=high, dtype=dtype)
         if (cls.current_dmat is None or (dtype_set and cls.current_dmat.dtype != dtype)):
@@ -508,7 +507,7 @@ def get_cache_details():
     -------
     dict:
         A dictionary containing:
-            * cache_memory_limit
+            * cache_mem_limit
                 Limit in MiB of the cached DeltaMatrix
             * maximum_el
                 Maximum el mode that can be supported by itself
