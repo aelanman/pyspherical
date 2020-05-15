@@ -1,7 +1,7 @@
 # pyspherical
 
 
-![](https://github.com/RadioAstronomySoftwareGroup/pyspherical/workflows/Tests/badge.svg?branch=master)
+![](https://github.com/aelanman/pyspherical/workflows/Tests/badge.svg?branch=master)
 [![codecov](https://codecov.io/gh/aelanman/pyspherical/branch/master/graph/badge.svg)](https://codecov.io/gh/aelanman/pyspherical)
 
 Implements the fast spin-weighted spherical harmonic transform methods of McEwan and Wiaux (2011) [1],
