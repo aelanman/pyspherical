@@ -45,7 +45,7 @@ def test_transform_eval_compare(mw_sampling, slm):
 
     assert np.allclose(test1, test2, atol=1e-10)
     assert np.allclose(test2, test3, atol=1e-5)
-    assert pysh.get_cached_dmat().lmax == lmax + 1
+    assert pysh.get_cached_dmat().lmax == lmax
 
 
 def test_wigner_symm():
