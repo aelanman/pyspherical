@@ -119,10 +119,8 @@ def unravel_lm(el, m):
 @jit(types.Tuple((int32, int32))(int32), nopython=True)
 def ravel_lm(ind):
     """Get (el, em) from index."""
-    ind = np.atleast_1d(ind)
-    el = (np.floor(np.sqrt(ind))).astype(int)
+    el = int(np.floor(np.sqrt(ind)))
     m = ind - el * (el + 1)
-    el, m = el.squeeze(), m.squeeze()
     return el, m
 
 

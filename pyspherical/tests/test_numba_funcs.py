@@ -64,9 +64,9 @@ def test_ravel_lm():
     # Check that ravel_lm is consistent with unravel_lm:
     lmax = 10
     inds = np.arange(lmax**2)
-    el, em = pysh.utils.ravel_lm(inds)
+    el, em = np.array([pysh.utils.ravel_lm(inds[ii]) for ii in range(lmax**2)]).T
     assert np.all(np.abs(em) <= el)
-    assert np.all(inds == pysh.utils.unravel_lm(el, em))
+    assert np.all([inds[ii] == pysh.utils.unravel_lm(el[ii], em[ii]) for ii in range(lmax**2)])
 
 
 def test_access_element():
