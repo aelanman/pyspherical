@@ -119,8 +119,10 @@ def unravel_lm(el, m):
 @jit(types.Tuple((int32, int32))(int32), nopython=True)
 def ravel_lm(ind):
     """Get (el, em) from index."""
-    el = int(np.floor(np.sqrt(ind)))
+    ind = np.atleast_1d(ind)
+    el = (np.floor(np.sqrt(ind))).astype(int)
     m = ind - el * (el + 1)
+    el, m = el.squeeze(), m.squeeze()
     return el, m
 
 
@@ -154,8 +156,6 @@ def get_grid_sampling(lmax=None, Nt=None, Nf=None):
     if Nf is None:
         if lmax is not None:
             Nf = 2 * lmax - 1
-    if (Nt is None) and (Nf is None):
-        raise ValueError("Input required.")
 
     dth = np.pi / (2 * Nt - 1)
     thetas = np.linspace(dth, np.pi, Nt, endpoint=True)

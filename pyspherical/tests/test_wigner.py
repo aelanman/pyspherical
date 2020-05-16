@@ -67,7 +67,6 @@ def test_wigner_symm():
             for m in range(-ll, ll + 1):
                 for mm in range(-ll, ll + 1):
                     val1 = dl(ll, m, mm, th)
-                    print(ll, m, mm)
                     assert np.isclose(val1, (-1)**(m - mm) * dl(ll, -m, -mm, th))
                     assert np.isclose(val1, (-1)**(m - mm) * dl(ll, mm, m, th))
                     assert np.isclose(val1, dl(ll, -mm, -m, th))

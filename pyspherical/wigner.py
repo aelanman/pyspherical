@@ -24,7 +24,6 @@ __all__ = [
 def _dmat_eval(lmax, arr, lmin=0, lstart=None, arr0=None):
     # Evaluate the values of the Wigner-d matrices at pi/2.
     # arr = linear array, modified in-place
-
     if arr0 is not None:
         arr[:len(arr0)] = arr0
     else:
