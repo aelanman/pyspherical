@@ -69,7 +69,8 @@ def resize_axis(arr, size, mode='zero', axis=0):
             _new[-1:-limit - 1:-1, ...] = _arr[-1:-limit - 1:-1, ...]
 
     elif mode == 'start':
-        _new[:L, ...] = _arr[:L, ...]
+        limit = np.min([size, L])
+        _new[:limit, ...] = _arr[:limit, ...]
     elif mode == 'center':
         if size <= L:
             # Truncating
