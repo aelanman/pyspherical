@@ -26,7 +26,7 @@ def mw_sum_of_harms():
             lmin = spin + 1
 
         # NOTE Transforms seem to fail the loop test when the el = spin component is nonzero.
-        peak_els = np.random.choice(np.arange(lmin, lmax), Npeaks, replace=False)
+        peak_els = np.random.choice(np.arange(lmin, lmax - 1), Npeaks, replace=False)
         peak_ems = np.array([np.random.randint(-el, el + 1) for el in peak_els])
         peak_amps = np.random.uniform(10, 20, Npeaks)
         dat = np.zeros(gtheta.shape, dtype=complex)
