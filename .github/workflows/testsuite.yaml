@@ -77,7 +77,7 @@ jobs:
           export PATH="$HOME/miniconda/bin:$PATH"
           export NUMBA_DISABLE_JIT=1
           source activate $ENV_NAME
-          python -m pytest tests/test_numba_funcs.py --cov=pyspherical --cov-config=.coveragerc --cov-report html:./coverage --junitxml=test-reports/xunit.xml --cov-append
+          python -m pytest pyspherical/tests/test_numba_funcs.py --cov=pyspherical --cov-config=.coveragerc --cov-report xml:./coverage.xml --junitxml=test-reports/xunit.xml --cov-append
           unset NUMBA_DISABLE_JIT
       - uses: codecov/codecov-action@master
         if: matrix.os == 'ubuntu-latest' && success()

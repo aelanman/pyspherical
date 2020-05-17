@@ -204,5 +204,5 @@ def test_dmat_64bit():
 
 
 def test_error():
-    with pytest.raises(ValueError, match="HarmonicFunction class is not"):
+    with pytest.raises(Exception, match="HarmonicFunction class is not"):
         pysh.wigner.HarmonicFunction()
