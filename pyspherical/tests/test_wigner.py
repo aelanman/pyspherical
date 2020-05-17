@@ -37,6 +37,13 @@ def test_transform_eval_compare(mw_sampling, slm):
     flm = np.zeros(lmax**2, dtype=complex)
     flm[pysh.utils.unravel_lm(el, em)] = amp
 
+    # Error cases
+    with pytest.raises(ValueError, match="theta and phi must have"):
+        pysh.spin_spherical_harmonic(spin, el, em, theta, gphi)
+
+    with pytest.raises(ValueError, match="theta and phi must have"):
+        pysh.spin_spharm_goldberg(spin, el, em, theta, gphi)
+
     test1 = pysh.inverse_transform(flm, thetas=theta, phis=phi, spin=spin)
     test2 = amp * \
         pysh.spin_spherical_harmonic(
@@ -194,3 +201,8 @@ def test_dmat_64bit():
         # Different sign convention.
         assert np.isclose(val.real, (-1)**(m + mp)
                           * pysh.wigner_d(el, m, mp, np.pi / 2), atol=1e-12)
+
+
+def test_error():
+    with pytest.raises(ValueError, match="HarmonicFunction class is not"):
+        pysh.wigner.HarmonicFunction()

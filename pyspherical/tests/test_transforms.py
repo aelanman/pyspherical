@@ -228,6 +228,16 @@ def test_loop_limited_mem(spin, mw_sum_of_harms):
     # Limit cache memory to a small value.
     pysh.set_cache_mem_limit(low_limit)
 
+    # Test lmin/lmax limiter.
+    new_lmin, new_lmax = pysh.wigner.HarmonicFunction._limit_lmin_lmax(0, lmax, True)
+    assert new_lmax == lmax and new_lmin > 0
+    new_lmin, new_lmax = pysh.wigner.HarmonicFunction._limit_lmin_lmax(0, lmax, False)
+    assert new_lmin == 0 and new_lmax < lmax
+
+    # Error if trying to set lmax too high for memory limit.
+    with pytest.raises(ValueError, match="Cannot construct DeltaMatrix within"):
+        pysh.wigner.HarmonicFunction._set_wigner(0, 500, True)
+
     # Confirm that transformation still works both ways.
     flm3 = pysh.forward_transform(res, phi, theta, lmax, spin=spin)
     res2 = pysh.inverse_transform(flm3, phi, theta, lmax, spin=spin)
