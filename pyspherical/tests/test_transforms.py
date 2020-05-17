@@ -26,14 +26,14 @@ def mw_sum_of_harms():
             lmin = spin + 1
 
         # NOTE Transforms seem to fail the loop test when the el = spin component is nonzero.
-        peak_els = np.random.choice(np.arange(lmin, lmax - 1), Npeaks, replace=False)
+        peak_els = np.random.choice(np.arange(lmin, lmax), Npeaks, replace=False)
         peak_ems = np.array([np.random.randint(-el, el + 1) for el in peak_els])
         peak_amps = np.random.uniform(10, 20, Npeaks)
         dat = np.zeros(gtheta.shape, dtype=complex)
         for ii in range(Npeaks):
             em = peak_ems[ii]
             el = peak_els[ii]
-            dat += peak_amps[ii] * pysh.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
+            dat += peak_amps[ii] * pysh.spin_spherical_harmonic(spin, el, em, gtheta, gphi)
 
         return dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps)
 
@@ -70,7 +70,7 @@ def test_transform_mw_loop_with_lmin(mw_sum_of_harms):
 
     spin = 0
     lmin = 3
-
+#    pysh.clear_cached_dmat()
     dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms(spin, lmin=lmin)
     flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=lmin, spin=spin)
     Npeaks = len(peak_els)
@@ -192,7 +192,7 @@ def test_loop_diffphi_nongrid(offsets, em):
     el = 17
     em = em
     amp = 50
-    dat = amp * pysh.spin_spharm_goldberg(0, el, em, thetas, phis)
+    dat = amp * pysh.spin_spherical_harmonic(0, el, em, thetas, phis)
 
     flm = pysh.forward_transform(dat, phis, thetas, lmax=lmax)
     res = pysh.inverse_transform(flm, phis, thetas, lmax=lmax)
@@ -210,7 +210,8 @@ def test_loop_limited_mem(spin, mw_sum_of_harms):
 
     dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms(spin)
 
-    lmax = 41
+    # NOTE -- Falls into a recursive loop if lmax is too large -- Investigate
+    lmax = 60
 
     flm = pysh.forward_transform(dat, phi, theta, lmax, spin=spin)
     res = pysh.inverse_transform(flm, phi, theta, lmax, spin=spin)
@@ -238,4 +239,4 @@ def test_loop_limited_mem(spin, mw_sum_of_harms):
 
     assert np.allclose(flm3, flm2)
     assert np.allclose(res, res2, atol=1e-4)
-    assert details['size'] * np.zeros(1).nbytes < details['cache_mem_limit']
+    assert details['size'] * np.zeros(1, dtype=np.float32).nbytes < details['cache_mem_limit']

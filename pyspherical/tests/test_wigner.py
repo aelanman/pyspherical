@@ -40,7 +40,7 @@ def test_transform_eval_compare(mw_sampling, slm):
     test1 = pysh.inverse_transform(flm, thetas=theta, phis=phi, spin=spin)
     test2 = amp * \
         pysh.spin_spherical_harmonic(
-            el, em, spin, gtheta, gphi, lmax=lmax)
+            spin, el, em, gtheta, gphi, lmax=lmax)
     test3 = amp * pysh.wigner.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
     assert np.allclose(test1, test2, atol=1e-10)

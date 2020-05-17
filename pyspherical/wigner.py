@@ -71,7 +71,7 @@ def _access_element(l, m1, m2, arr, lmin=0):
 
     _m1, _m2 = m1, m2
 
-    fac = (-1)**(_m2 - _m1)     # For sign convention of the SSHT paper
+    fac = (-1.)**(_m2 - _m1)     # For sign convention of the SSHT paper
 
     if _m1 < 0 and _m2 < 0:
         fac *= (-1)**(m1 - m2)
@@ -86,7 +86,7 @@ def _access_element(l, m1, m2, arr, lmin=0):
 
     # reverse if wrong order
     if m1 < m2:
-        fac *= (-1)**(m1 - m2)
+        fac *= (-1.)**(m1 - m2)
         m1, m2 = m2, m1
 
     val = fac * arr[tri_ravel(l, m1, m2) - tri_ravel(lmin, lmin, 0)]

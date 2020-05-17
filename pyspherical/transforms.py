@@ -74,15 +74,15 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
 
 
 @jit(nopython=True)
-def _jit_dmm2flm(dmm, cur_lmax, spin, dmatarr, lmin, flm):
+def _jit_dmm2flm(dmm, cur_lmax, spin, dmatarr, lmin, flm, out_lmin):
     # Faster evaluation.
     # flm = output array, written to directly.
 
-    loopmin = max(lmin, spin)
+    loopmin = max(out_lmin, spin, lmin)
     for el in range(loopmin, cur_lmax):
         prefac = np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
-            ind = unravel_lm(el, m) - lmin**2
+            ind = unravel_lm(el, m) - out_lmin**2
             # The MW paper was missing a factor of (-1)**(m+spin) here.
             prefac2 = (-1)**(m + 2 * spin) * (1j)**(m + spin)
             for mp in range(-el, el + 1):
@@ -90,20 +90,21 @@ def _jit_dmm2flm(dmm, cur_lmax, spin, dmatarr, lmin, flm):
                     _access_element(el, mp, -spin, dmatarr, lmin=lmin) * dmm[m, mp]
 
 
-def _dmm_to_flm(dmm, lmax, spin, flm=None, lmin=0):
+def _dmm_to_flm(dmm, lmax, spin, flm=None, lmin=0, out_lmin=0):
     # Recursion is to handle potential memory-limited situations:
     #  - If the cached Wigner matrix has an lmax < less than given lmax,
     #    then rerun with the smaller lmax and then with the remainder.
     #  - Otherwise, fill flm using the JIT-compiled function above.
     if flm is None:
-        flm = np.zeros(lmax**2 - lmin**2, dtype=complex)
+        out_lmin = lmin
+        flm = np.zeros(lmax**2 - out_lmin**2, dtype=complex)
     HarmonicFunction._set_wigner(lmin, lmax, high=False)
     wig_d = HarmonicFunction.current_dmat
     if wig_d.lmax < lmax:
         _dmm_to_flm(dmm, wig_d.lmax, spin, flm=flm, lmin=lmin)
         _dmm_to_flm(dmm, lmax, spin, flm=flm, lmin=wig_d.lmax)
     else:
-        _jit_dmm2flm(dmm, lmax, spin, wig_d._arr, lmin, flm)
+        _jit_dmm2flm(dmm, lmax, spin, wig_d._arr, wig_d.lmin, flm, out_lmin)
 
     return flm
 
@@ -239,12 +240,12 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
 # -----------------
 
 @jit(nopython=True)
-def _jit_flm2fmm(flm, cur_lmax, spin, dmatarr, lmin, fmm):
-    loopmin = max(lmin, spin)
+def _jit_flm2fmm(flm, cur_lmax, spin, dmatarr, lmin, fmm, in_lmin):
+    loopmin = max(lmin, in_lmin, spin)
     for el in range(loopmin, cur_lmax):
         prefac = (-1)**spin * np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
-            prefac2 = (1j)**(-m - spin) * flm[unravel_lm(el, m) - lmin**2]
+            prefac2 = (1j)**(-m - spin) * flm[unravel_lm(el, m) - in_lmin**2]
             for mp in range(-el, el + 1):
                 fmm[m, mp] += prefac * prefac2 * (
                     _access_element(el, m, mp, dmatarr, lmin=lmin)
@@ -252,16 +253,17 @@ def _jit_flm2fmm(flm, cur_lmax, spin, dmatarr, lmin, fmm):
                 )
 
 
-def _flm_to_fmm(flm, lmax, spin, fmm=None, lmin=0):
+def _flm_to_fmm(flm, lmax, spin, fmm=None, lmin=0, in_lmin=0):
     if fmm is None:
+        in_lmin = lmin
         fmm = np.zeros(((2 * lmax - 1), (2 * lmax - 1)), dtype=complex)
     HarmonicFunction._set_wigner(lmin, lmax, high=False)
     wig_d = HarmonicFunction.current_dmat
     if wig_d.lmax < lmax:
-        _flm_to_fmm(flm, wig_d.lmax, spin, fmm=fmm, lmin=lmin)
-        _flm_to_fmm(flm, lmax, spin, fmm=fmm, lmin=wig_d.lmax)
+        _flm_to_fmm(flm, wig_d.lmax, spin, fmm=fmm, lmin=lmin, in_lmin=in_lmin)
+        _flm_to_fmm(flm, lmax, spin, fmm=fmm, lmin=wig_d.lmax, in_lmin=in_lmin)
     else:
-        _jit_flm2fmm(flm, lmax, spin, wig_d._arr, lmin, fmm)
+        _jit_flm2fmm(flm, lmax, spin, wig_d._arr, wig_d.lmin, fmm, in_lmin)
 
     return fmm
 
