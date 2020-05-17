@@ -108,6 +108,12 @@ def test_delta_matrix_inits():
                 for m2 in range(-el, el + 1):
                     assert dm[el, m1, m2] == dmat1[el, m1, m2]
 
+    # Check error cases:
+    with pytest.raises(ValueError, match="l < lmin. Need to re-evaluate"):
+        dmat2[3, 0, 1]
+    with pytest.raises(ValueError, match="l > lmax. Need to re-evaluate"):
+        dmat2[22, 0, 1]
+
 
 @pytest.mark.parametrize(
     ('err', 'lmin', 'lmax', 'arrsize'),

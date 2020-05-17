@@ -211,7 +211,9 @@ class DeltaMatrix:
         """
         (l, m1, m2) = index
         if l < self.lmin:
-            raise ValueError("l < lmin. Need to re-evaluate delta matrix")
+            raise ValueError("l < lmin. Need to re-evaluate delta matrix.")
+        if l > self.lmax:
+            raise ValueError("l > lmax. Need to re-evaluate delta matrix.")
         return _access_element(l, m1, m2, self._arr, self.lmin)
 
 

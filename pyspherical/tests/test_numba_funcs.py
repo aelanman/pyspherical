@@ -105,3 +105,24 @@ def test_transform():
     res = pysh.inverse_transform(flm, phi, theta, lmax)
     assert np.isclose(flm[0], amp * np.sqrt(4 * np.pi))
     assert np.allclose(res, amp, atol=1e-4)
+
+
+def test_wigner_d_matrix_el():
+    # Check the _get_matrix_elements function
+
+    dmat = pysh.DeltaMatrix(6)
+
+    el = 5
+    m1 = 3
+    m2 = 2
+
+    test = []
+    for mp in range(0, el + 1):
+        test.append(dmat[el, mp, m1] * dmat[el, mp, m2])
+
+    test = np.array(test)
+
+    comp = np.empty(test.size, dtype=np.float32)
+    pysh.wigner._get_matrix_elements(el, m1, m2, dmat._arr, comp)
+
+    assert np.allclose(comp, test)
