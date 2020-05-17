@@ -69,7 +69,8 @@ def resize_axis(arr, size, mode='zero', axis=0):
             _new[-1:-limit - 1:-1, ...] = _arr[-1:-limit - 1:-1, ...]
 
     elif mode == 'start':
-        _new[:L, ...] = _arr[:L, ...]
+        limit = np.min([size, L])
+        _new[:limit, ...] = _arr[:limit, ...]
     elif mode == 'center':
         if size <= L:
             # Truncating
@@ -154,8 +155,6 @@ def get_grid_sampling(lmax=None, Nt=None, Nf=None):
     if Nf is None:
         if lmax is not None:
             Nf = 2 * lmax - 1
-    if (Nt is None) and (Nf is None):
-        raise ValueError("Input required.")
 
     dth = np.pi / (2 * Nt - 1)
     thetas = np.linspace(dth, np.pi, Nt, endpoint=True)

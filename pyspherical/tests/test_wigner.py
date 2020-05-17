@@ -37,10 +37,17 @@ def test_transform_eval_compare(mw_sampling, slm):
     flm = np.zeros(lmax**2, dtype=complex)
     flm[pysh.utils.unravel_lm(el, em)] = amp
 
+    # Error cases
+    with pytest.raises(ValueError, match="theta and phi must have"):
+        pysh.spin_spherical_harmonic(spin, el, em, theta, gphi)
+
+    with pytest.raises(ValueError, match="theta and phi must have"):
+        pysh.spin_spharm_goldberg(spin, el, em, theta, gphi)
+
     test1 = pysh.inverse_transform(flm, thetas=theta, phis=phi, spin=spin)
     test2 = amp * \
         pysh.spin_spherical_harmonic(
-            el, em, spin, gtheta, gphi, lmax=lmax)
+            spin, el, em, gtheta, gphi, lmax=lmax)
     test3 = amp * pysh.wigner.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
 
     assert np.allclose(test1, test2, atol=1e-10)
@@ -67,7 +74,6 @@ def test_wigner_symm():
             for m in range(-ll, ll + 1):
                 for mm in range(-ll, ll + 1):
                     val1 = dl(ll, m, mm, th)
-                    print(ll, m, mm)
                     assert np.isclose(val1, (-1)**(m - mm) * dl(ll, -m, -mm, th))
                     assert np.isclose(val1, (-1)**(m - mm) * dl(ll, mm, m, th))
                     assert np.isclose(val1, dl(ll, -mm, -m, th))
@@ -108,6 +114,12 @@ def test_delta_matrix_inits():
             for m1 in range(-el, el + 1):
                 for m2 in range(-el, el + 1):
                     assert dm[el, m1, m2] == dmat1[el, m1, m2]
+
+    # Check error cases:
+    with pytest.raises(ValueError, match="l < lmin. Need to re-evaluate"):
+        dmat2[3, 0, 1]
+    with pytest.raises(ValueError, match="l > lmax. Need to re-evaluate"):
+        dmat2[22, 0, 1]
 
 
 @pytest.mark.parametrize(
@@ -189,3 +201,8 @@ def test_dmat_64bit():
         # Different sign convention.
         assert np.isclose(val.real, (-1)**(m + mp)
                           * pysh.wigner_d(el, m, mp, np.pi / 2), atol=1e-12)
+
+
+def test_error():
+    with pytest.raises(Exception, match="HarmonicFunction class is not"):
+        pysh.wigner.HarmonicFunction()

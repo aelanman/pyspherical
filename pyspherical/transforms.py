@@ -11,7 +11,6 @@ Non-uniform sampling in theta will be supported in the future.
 """
 
 import numpy as np
-import warnings
 from numba import jit
 
 from .wigner import HarmonicFunction, _access_element
@@ -75,15 +74,15 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
 
 
 @jit(nopython=True)
-def _jit_dmm2flm(dmm, cur_lmax, spin, dmatarr, lmin, flm):
+def _jit_dmm2flm(dmm, cur_lmax, spin, dmatarr, lmin, flm, out_lmin):
     # Faster evaluation.
     # flm = output array, written to directly.
 
-    loopmin = max(lmin, spin)
+    loopmin = max(out_lmin, spin, lmin)
     for el in range(loopmin, cur_lmax):
         prefac = np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
-            ind = unravel_lm(el, m)
+            ind = unravel_lm(el, m) - out_lmin**2
             # The MW paper was missing a factor of (-1)**(m+spin) here.
             prefac2 = (-1)**(m + 2 * spin) * (1j)**(m + spin)
             for mp in range(-el, el + 1):
@@ -91,20 +90,21 @@ def _jit_dmm2flm(dmm, cur_lmax, spin, dmatarr, lmin, flm):
                     _access_element(el, mp, -spin, dmatarr, lmin=lmin) * dmm[m, mp]
 
 
-def _dmm_to_flm(dmm, lmax, spin, flm=None, lmin=0):
+def _dmm_to_flm(dmm, lmax, spin, flm=None, lmin=0, out_lmin=0):
     # Recursion is to handle potential memory-limited situations:
     #  - If the cached Wigner matrix has an lmax < less than given lmax,
     #    then rerun with the smaller lmax and then with the remainder.
     #  - Otherwise, fill flm using the JIT-compiled function above.
     if flm is None:
-        flm = np.zeros(lmax**2, dtype=complex)
+        out_lmin = lmin
+        flm = np.zeros(lmax**2 - out_lmin**2, dtype=complex)
     HarmonicFunction._set_wigner(lmin, lmax, high=False)
     wig_d = HarmonicFunction.current_dmat
     if wig_d.lmax < lmax:
         _dmm_to_flm(dmm, wig_d.lmax, spin, flm=flm, lmin=lmin)
         _dmm_to_flm(dmm, lmax, spin, flm=flm, lmin=wig_d.lmax)
     else:
-        _jit_dmm2flm(dmm, lmax, spin, wig_d._arr, lmin, flm)
+        _jit_dmm2flm(dmm, lmax, spin, wig_d._arr, wig_d.lmin, flm, out_lmin)
 
     return flm
 
@@ -130,7 +130,7 @@ def _do_fwd_transform_on_grid(dat, phis, thetas, lmax, lmin=0, ph_ax=0, th_ax=1,
     else:
         raise NotImplementedError(
             "Non-uniform latitude spacing is not yet supported.")
-    flm = _dmm_to_flm(dmm, lmax, spin)
+    flm = _dmm_to_flm(dmm, lmax, spin, lmin=lmin)
 
     return flm
 
@@ -162,8 +162,6 @@ def _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
         phase = np.exp(-1j * em * np.min(np.abs(phis[ring])))
         dm_th[:, th_i] *= phase
 
-    print("Nongrid")
-
     # theta to m'
     dth = np.diff(un_thetas)
     if np.allclose(dth, dth[0]):
@@ -172,7 +170,7 @@ def _do_fwd_transform_nongrid(dat, phis, thetas, lmax, lmin, spin):
         raise NotImplementedError(
             "Non-uniform latitude spacing is not yet supported.")
 
-    flm = _dmm_to_flm(dmm, lmax, spin)
+    flm = _dmm_to_flm(dmm, lmax, spin, lmin=lmin)
 
     return flm
 
@@ -198,7 +196,6 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
     lmax: int
         Maximum multipole mode.
     lmin: int
-        Currently unused.
         Minimum multipole mode to compute. (Optional, default 0)
     spin: int
         Spin of the transform.
@@ -213,9 +210,6 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
             ind = 0  1  2  3  4  5  6  7  8
         Modes with el < spin will be set to zero.
     """
-    if lmin != 0:
-        warnings.warn("The lmin keyword is currently unused. Defaulted to 0")
-        lmin = 0
 
     phis = np.asarray(phis)
     thetas = np.asarray(thetas)
@@ -246,12 +240,12 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
 # -----------------
 
 @jit(nopython=True)
-def _jit_flm2fmm(flm, cur_lmax, spin, dmatarr, lmin, fmm):
-    loopmin = max(lmin, spin)
+def _jit_flm2fmm(flm, cur_lmax, spin, dmatarr, lmin, fmm, in_lmin):
+    loopmin = max(lmin, in_lmin, spin)
     for el in range(loopmin, cur_lmax):
         prefac = (-1)**spin * np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
-            prefac2 = (1j)**(-m - spin) * flm[unravel_lm(el, m)]
+            prefac2 = (1j)**(-m - spin) * flm[unravel_lm(el, m) - in_lmin**2]
             for mp in range(-el, el + 1):
                 fmm[m, mp] += prefac * prefac2 * (
                     _access_element(el, m, mp, dmatarr, lmin=lmin)
@@ -259,26 +253,23 @@ def _jit_flm2fmm(flm, cur_lmax, spin, dmatarr, lmin, fmm):
                 )
 
 
-def _flm_to_fmm(flm, lmax, spin, fmm=None, lmin=0):
+def _flm_to_fmm(flm, lmax, spin, fmm=None, lmin=0, in_lmin=0):
     if fmm is None:
+        in_lmin = lmin
         fmm = np.zeros(((2 * lmax - 1), (2 * lmax - 1)), dtype=complex)
     HarmonicFunction._set_wigner(lmin, lmax, high=False)
     wig_d = HarmonicFunction.current_dmat
     if wig_d.lmax < lmax:
-        _flm_to_fmm(flm, wig_d.lmax, spin, fmm=fmm, lmin=lmin)
-        _flm_to_fmm(flm, lmax, spin, fmm=fmm, lmin=wig_d.lmax)
+        _flm_to_fmm(flm, wig_d.lmax, spin, fmm=fmm, lmin=lmin, in_lmin=in_lmin)
+        _flm_to_fmm(flm, lmax, spin, fmm=fmm, lmin=wig_d.lmax, in_lmin=in_lmin)
     else:
-        _jit_flm2fmm(flm, lmax, spin, wig_d._arr, lmin, fmm)
+        _jit_flm2fmm(flm, lmax, spin, wig_d._arr, wig_d.lmin, fmm, in_lmin)
 
     return fmm
 
 
 def _theta_ifft(fmm, lmax, spin, Nt=None, offset=None):
-    if Nt is None:
-        Nt = lmax
-
-    if offset is None:
-        offset = np.pi / (2 * Nt - 1)
+    # offset = np.pi / (2 * Nt - 1) for MW sampling
 
     em = np.fft.ifftshift(np.arange(-(lmax - 1), lmax))
 
@@ -297,7 +288,7 @@ def _theta_ifft(fmm, lmax, spin, Nt=None, offset=None):
 
 def _do_inv_transform_on_grid(flm, phis, thetas, lmax, lmin=0, spin=0):
     """Do inverse transform assuming regular grid in theta and phi."""
-    Fmm = _flm_to_fmm(flm, lmax, spin)
+    Fmm = _flm_to_fmm(flm, lmax, spin, lmin=lmin)
 
     # Transform over theta
     theta_is_equi = np.allclose(
@@ -327,7 +318,7 @@ def _do_inv_transform_nongrid(flm, phis, thetas, lmax, lmin=0, spin=0):
     phis = phis.flatten()
     thetas = thetas.flatten()
 
-    Fmm = _flm_to_fmm(flm, lmax, spin)
+    Fmm = _flm_to_fmm(flm, lmax, spin, lmin=lmin)
 
     un_thetas, lat_ind = np.unique(thetas, return_inverse=True)
     Nlats = un_thetas.size
@@ -343,7 +334,7 @@ def _do_inv_transform_nongrid(flm, phis, thetas, lmax, lmin=0, spin=0):
     else:
         raise NotImplementedError(
             "Non-uniform latitude spacing is not yet supported.")
-    print("Nongrid")
+
     # Transform m to phi, per ring.
     #   Need to apply a phase offset if the 0th index is not at phi = 0
     em = np.fft.ifftshift(np.arange(-(lmax - 1), lmax))
@@ -379,7 +370,6 @@ def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt
         Maximum multipole mode. (Optional)
         Defaults to sqrt(len(flm)).
     lmin: int
-        Currently unused.
         Minimum multipole mode to compute. (Optional, default 0)
     spin: int
         Spin of the transform.
@@ -408,7 +398,7 @@ def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt
     if lmax is None:
         lmax = int(np.sqrt(flm.size))
 
-    if np.sqrt(flm.size) % 1 != 0:
+    if np.sqrt(flm.size + lmin**2) % 1 != 0:
         raise ValueError("Invalid flm shape: {}".format(str(flm.shape)))
 
     _thetas, _phis = get_grid_sampling(lmax, Nt, Nf)

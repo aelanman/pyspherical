@@ -16,19 +16,24 @@ def mw_sum_of_harms():
 
     gtheta, gphi = np.meshgrid(theta, phi)
 
-    def _func(spin=0):
+    def _func(spin=0, lmin=None):
         # Data
         Npeaks = 5
 
+        if lmin is not None:
+            lmin = max(spin, lmin) + 1
+        else:
+            lmin = spin + 1
+
         # NOTE Transforms seem to fail the loop test when the el = spin component is nonzero.
-        peak_els = np.random.choice(np.arange(spin + 1, lmax - 1), Npeaks, replace=False)
+        peak_els = np.random.choice(np.arange(lmin, lmax - 1), Npeaks, replace=False)
         peak_ems = np.array([np.random.randint(-el, el + 1) for el in peak_els])
         peak_amps = np.random.uniform(10, 20, Npeaks)
         dat = np.zeros(gtheta.shape, dtype=complex)
         for ii in range(Npeaks):
             em = peak_ems[ii]
             el = peak_els[ii]
-            dat += peak_amps[ii] * pysh.spin_spharm_goldberg(spin, el, em, gtheta, gphi)
+            dat += peak_amps[ii] * pysh.spin_spherical_harmonic(spin, el, em, gtheta, gphi)
 
         return dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps)
 
@@ -56,6 +61,43 @@ def test_transform_mw_sampling(spin, mw_sum_of_harms):
 
     # Check that the remaining points are all near zero.
     assert np.allclose(flm[flm_srt[:-Npeaks]], 0.0, atol=1.0)
+
+
+def test_transform_mw_loop_with_lmin(mw_sum_of_harms):
+    # MW sampling:
+    #   (lmax) samples in theta
+    #   (2 * lmax - 1) in phi
+
+    spin = 0
+    lmin = 3
+#    pysh.clear_cached_dmat()
+    dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms(spin, lmin=lmin)
+    flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=lmin, spin=spin)
+    Npeaks = len(peak_els)
+
+    # Verify that the peaks are at the expected el, em.
+    flm_srt = np.argsort(flm)
+    peak_inds = flm_srt[-Npeaks:]
+    lmtest = np.array([pysh.ravel_lm(ind + lmin**2) for ind in peak_inds])
+    assert set(lmtest[:, 0]) == set(peak_els)
+    assert set(lmtest[:, 1]) == set(peak_ems)
+    assert np.allclose(np.array(sorted(peak_amps)),
+                       flm[peak_inds].real, atol=1e-5)
+
+    # Check that the remaining points are all near zero.
+    assert np.allclose(flm[flm_srt[:-Npeaks]], 0.0, atol=1.0)
+
+    # Error with wrong flm shape
+    with pytest.raises(ValueError, match='Invalid flm shape'):
+        pysh.inverse_transform(flm, phi, theta, lmax, lmin=0, spin=spin)
+
+    # Check that inverse works.
+    res = pysh.inverse_transform(flm, phi, theta, lmax, lmin=lmin, spin=spin)
+
+    flm2 = pysh.forward_transform(res, phi, theta, lmax, lmin=lmin, spin=spin)
+
+    assert np.allclose(flm2, flm)
+    assert np.allclose(res, dat)
 
 
 @pytest.mark.parametrize('lmax', range(10, 50, 5))
@@ -150,7 +192,7 @@ def test_loop_diffphi_nongrid(offsets, em):
     el = 17
     em = em
     amp = 50
-    dat = amp * pysh.spin_spharm_goldberg(0, el, em, thetas, phis)
+    dat = amp * pysh.spin_spherical_harmonic(0, el, em, thetas, phis)
 
     flm = pysh.forward_transform(dat, phis, thetas, lmax=lmax)
     res = pysh.inverse_transform(flm, phis, thetas, lmax=lmax)
@@ -168,7 +210,8 @@ def test_loop_limited_mem(spin, mw_sum_of_harms):
 
     dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms(spin)
 
-    lmax = 41
+    # NOTE -- Falls into a recursive loop if lmax is too large -- Investigate
+    lmax = 60
 
     flm = pysh.forward_transform(dat, phi, theta, lmax, spin=spin)
     res = pysh.inverse_transform(flm, phi, theta, lmax, spin=spin)
@@ -185,6 +228,16 @@ def test_loop_limited_mem(spin, mw_sum_of_harms):
     # Limit cache memory to a small value.
     pysh.set_cache_mem_limit(low_limit)
 
+    # Test lmin/lmax limiter.
+    new_lmin, new_lmax = pysh.wigner.HarmonicFunction._limit_lmin_lmax(0, lmax, True)
+    assert new_lmax == lmax and new_lmin > 0
+    new_lmin, new_lmax = pysh.wigner.HarmonicFunction._limit_lmin_lmax(0, lmax, False)
+    assert new_lmin == 0 and new_lmax < lmax
+
+    # Error if trying to set lmax too high for memory limit.
+    with pytest.raises(ValueError, match="Cannot construct DeltaMatrix within"):
+        pysh.wigner.HarmonicFunction._set_wigner(0, 500, True)
+
     # Confirm that transformation still works both ways.
     flm3 = pysh.forward_transform(res, phi, theta, lmax, spin=spin)
     res2 = pysh.inverse_transform(flm3, phi, theta, lmax, spin=spin)
@@ -196,4 +249,4 @@ def test_loop_limited_mem(spin, mw_sum_of_harms):
 
     assert np.allclose(flm3, flm2)
     assert np.allclose(res, res2, atol=1e-4)
-    assert details['size'] * np.zeros(1).nbytes < details['cache_mem_limit']
+    assert details['size'] * np.zeros(1, dtype=np.float32).nbytes < details['cache_mem_limit']
