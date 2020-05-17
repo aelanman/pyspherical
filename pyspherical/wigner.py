@@ -359,7 +359,7 @@ class HarmonicFunction:
         return val.squeeze()
 
     @classmethod
-    def spin_spherical_harmonic(cls, el, em, spin, theta, phi,
+    def spin_spherical_harmonic(cls, spin, el, em, theta, phi,
                                 lmin=None, lmax=None, double_prec=None):
         theta = np.asarray(theta)
         phi = np.asarray(phi)
@@ -428,7 +428,7 @@ def wigner_d(el, m1, m2, theta, lmin=None, lmax=None, double_prec=None):
     )
 
 
-def spin_spherical_harmonic(el, em, spin, theta, phi, lmin=None, lmax=None, double_prec=None):
+def spin_spherical_harmonic(spin, el, em, theta, phi, lmin=None, lmax=None, double_prec=None):
     """
     Evaluate the spin-weighted spherical harmonic.
 
@@ -436,10 +436,10 @@ def spin_spherical_harmonic(el, em, spin, theta, phi, lmin=None, lmax=None, doub
 
     Parameters
     ----------
-    el, em: ints
-        Spherical harmonic mode.
     spin: int
         Spin of the function.
+    el, em: ints
+        Spherical harmonic mode.
     theta: ndarray or float
         Colatitude(s) to evaluate to, in radians.
     phi: ndarray or float
@@ -467,7 +467,7 @@ def spin_spherical_harmonic(el, em, spin, theta, phi, lmin=None, lmax=None, doub
     If theta/phi are arrays, they must have the same shape.
     """
     return HarmonicFunction.spin_spherical_harmonic(
-        el, em, spin, theta, phi, lmin=lmin, lmax=lmax, double_prec=double_prec
+        spin, el, em, theta, phi, lmin=lmin, lmax=lmax, double_prec=double_prec
     )
 
 
@@ -586,7 +586,11 @@ def spin_spharm_goldberg(spin, el, em, theta, phi):
         ], axis=0)
 
         res = term0 * term1 * term2
-    res[np.isclose((theta / 2) % np.pi, 0)] = 0.0    # Singularities
+
+    if np.isscalar(res) and (np.isclose((theta / 2) % np.pi, 0)):
+        res = 0.0
+    else:
+        res[np.isclose((theta / 2) % np.pi, 0)] = 0.0    # Singularities
 
     if res.size == 1:
         return complex(res)

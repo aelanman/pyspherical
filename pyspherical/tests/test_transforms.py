@@ -16,12 +16,17 @@ def mw_sum_of_harms():
 
     gtheta, gphi = np.meshgrid(theta, phi)
 
-    def _func(spin=0):
+    def _func(spin=0, lmin=None):
         # Data
         Npeaks = 5
 
+        if lmin is not None:
+            lmin = max(spin, lmin) + 1
+        else:
+            lmin = spin + 1
+
         # NOTE Transforms seem to fail the loop test when the el = spin component is nonzero.
-        peak_els = np.random.choice(np.arange(spin + 1, lmax - 1), Npeaks, replace=False)
+        peak_els = np.random.choice(np.arange(lmin, lmax - 1), Npeaks, replace=False)
         peak_ems = np.array([np.random.randint(-el, el + 1) for el in peak_els])
         peak_amps = np.random.uniform(10, 20, Npeaks)
         dat = np.zeros(gtheta.shape, dtype=complex)
@@ -56,6 +61,43 @@ def test_transform_mw_sampling(spin, mw_sum_of_harms):
 
     # Check that the remaining points are all near zero.
     assert np.allclose(flm[flm_srt[:-Npeaks]], 0.0, atol=1.0)
+
+
+def test_transform_mw_loop_with_lmin(mw_sum_of_harms):
+    # MW sampling:
+    #   (lmax) samples in theta
+    #   (2 * lmax - 1) in phi
+
+    spin = 0
+    lmin = 3
+
+    dat, lmax, theta, phi, (peak_els, peak_ems, peak_amps) = mw_sum_of_harms(spin, lmin=lmin)
+    flm = pysh.forward_transform(dat, phi, theta, lmax, lmin=lmin, spin=spin)
+    Npeaks = len(peak_els)
+
+    # Verify that the peaks are at the expected el, em.
+    flm_srt = np.argsort(flm)
+    peak_inds = flm_srt[-Npeaks:]
+    lmtest = np.array([pysh.ravel_lm(ind + lmin**2) for ind in peak_inds])
+    assert set(lmtest[:, 0]) == set(peak_els)
+    assert set(lmtest[:, 1]) == set(peak_ems)
+    assert np.allclose(np.array(sorted(peak_amps)),
+                       flm[peak_inds].real, atol=1e-5)
+
+    # Check that the remaining points are all near zero.
+    assert np.allclose(flm[flm_srt[:-Npeaks]], 0.0, atol=1.0)
+
+    # Error with wrong flm shape
+    with pytest.raises(ValueError, match='Invalid flm shape'):
+        pysh.inverse_transform(flm, phi, theta, lmax, lmin=0, spin=spin)
+
+    # Check that inverse works.
+    res = pysh.inverse_transform(flm, phi, theta, lmax, lmin=lmin, spin=spin)
+
+    flm2 = pysh.forward_transform(res, phi, theta, lmax, lmin=lmin, spin=spin)
+
+    assert np.allclose(flm2, flm)
+    assert np.allclose(res, dat)
 
 
 @pytest.mark.parametrize('lmax', range(10, 50, 5))
