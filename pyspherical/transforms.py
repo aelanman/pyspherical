@@ -85,9 +85,15 @@ def _jit_dmm2flm(dmm, cur_lmax, spin, dmatarr, lmin, flm, out_lmin):
             ind = unravel_lm(el, m) - out_lmin**2
             # The MW paper was missing a factor of (-1)**(m+spin) here.
             prefac2 = (-1)**(m + 2 * spin) * (1j)**(m + spin)
-            for mp in range(-el, el + 1):
-                flm[ind] += prefac * prefac2 * _access_element(el, mp, m, dmatarr, lmin=lmin) * \
-                    _access_element(el, mp, -spin, dmatarr, lmin=lmin) * dmm[m, mp]
+            # mp == 0
+            flm[ind] += _access_element(el, 0, m, dmatarr, lmin=lmin) \
+                * _access_element(el, 0, -spin, dmatarr, lmin=lmin) * dmm[m, 0]
+            negfac = (-1)**(m + spin)
+            for mp in range(-el, 0):
+                flm[ind] += _access_element(el, mp, m, dmatarr, lmin=lmin) \
+                    * _access_element(el, mp, -spin, dmatarr, lmin=lmin) \
+                    * (dmm[m, mp] + negfac * dmm[m, -mp])
+            flm[ind] *= prefac * prefac2
 
 
 def _dmm_to_flm(dmm, lmax, spin, flm=None, lmin=0, out_lmin=0):
@@ -95,6 +101,7 @@ def _dmm_to_flm(dmm, lmax, spin, flm=None, lmin=0, out_lmin=0):
     #  - If the cached Wigner matrix has an lmax < less than given lmax,
     #    then rerun with the smaller lmax and then with the remainder.
     #  - Otherwise, fill flm using the JIT-compiled function above.
+    np.savez('dmm.npz', dmm=dmm)
     if flm is None:
         out_lmin = lmin
         flm = np.zeros(lmax**2 - out_lmin**2, dtype=complex)
@@ -246,11 +253,15 @@ def _jit_flm2fmm(flm, cur_lmax, spin, dmatarr, lmin, fmm, in_lmin):
         prefac = (-1)**spin * np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
             prefac2 = (1j)**(-m - spin) * flm[unravel_lm(el, m) - in_lmin**2]
-            for mp in range(-el, el + 1):
-                fmm[m, mp] += prefac * prefac2 * (
-                    _access_element(el, m, mp, dmatarr, lmin=lmin)
+            # mp == 0
+            fmm[m, 0] += prefac * prefac2 * _access_element(el, 0, m, dmatarr, lmin=lmin) \
+                * _access_element(el, 0, -spin, dmatarr, lmin=lmin)
+            negfac = (-1)**(m + spin)
+            for mp in range(1, el + 1):
+                val = prefac * prefac2 * _access_element(el, m, mp, dmatarr, lmin=lmin) \
                     * _access_element(el, -spin, mp, dmatarr, lmin=lmin)
-                )
+                fmm[m, mp] += val
+                fmm[m, -mp] += val * negfac
 
 
 def _flm_to_fmm(flm, lmax, spin, fmm=None, lmin=0, in_lmin=0):
