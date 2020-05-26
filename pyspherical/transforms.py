@@ -101,7 +101,6 @@ def _dmm_to_flm(dmm, lmax, spin, flm=None, lmin=0, out_lmin=0):
     #  - If the cached Wigner matrix has an lmax < less than given lmax,
     #    then rerun with the smaller lmax and then with the remainder.
     #  - Otherwise, fill flm using the JIT-compiled function above.
-    np.savez('dmm.npz', dmm=dmm)
     if flm is None:
         out_lmin = lmin
         flm = np.zeros(lmax**2 - out_lmin**2, dtype=complex)
