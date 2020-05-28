@@ -90,9 +90,9 @@ def _jit_dmm2flm(dmm, cur_lmax, spin, dmatarr, lmin, flm, out_lmin):
                 * _access_element(el, 0, -spin, dmatarr, lmin=lmin) * dmm[m, 0]
             negfac = (-1)**(m + spin)
             for mp in range(-el, 0):
-                flm[ind] += _access_element(el, mp, m, dmatarr, lmin=lmin) \
-                    * _access_element(el, mp, -spin, dmatarr, lmin=lmin) \
-                    * (dmm[m, mp] + negfac * dmm[m, -mp])
+                dels = _access_element(el, mp, m, dmatarr, lmin=lmin) \
+                    * _access_element(el, mp, -spin, dmatarr, lmin=lmin)
+                flm[ind] += dels * (dmm[m, mp] + negfac * dmm[m, -mp])
             flm[ind] *= prefac * prefac2
 
 

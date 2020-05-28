@@ -239,7 +239,7 @@ class HarmonicFunction:
     """
 
     current_dmat = None
-    cache_mem_limit = 200 * 2**20   # 200 MiB, lmax ~ 678
+    cache_mem_limit = 500 * 2**20   # 500 MiB, lmax ~ 921 for lmin = 0
 
     # This is the maximum el mode that whose full m1/m2 block can be
     # contained in the allowed memory limit.
@@ -299,7 +299,8 @@ class HarmonicFunction:
             double = True
         else:
             double = False
-        max_arrsize = cls._est_arrsize_limit(cls.cache_mem_limit, double=double)
+        mem_lim = getattr(cls, 'cache_mem_limit')
+        max_arrsize = cls._est_arrsize_limit(mem_lim, double=double)
         req_arrsize = DeltaMatrix.estimate_array_size(lmin, lmax)
         limited = req_arrsize > max_arrsize
         if limited and high:
