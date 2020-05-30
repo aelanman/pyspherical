@@ -24,8 +24,8 @@ def test_get_mw_grid():
 def test_resize_axis(Nitems, Nnew):
     # Zero-pad / truncate of arrays.
     #   Check that:
-    #       * Data end up in the right places, with nothing lost.
-    #       * The right parts of the array are kept, when truncating.
+    #       * Data end up in the right places, with nothing lost, when zero-padding.
+    #       * The right parts of the array are kept when truncating.
 
     arr0 = np.arange(Nitems) + 1
     arr1 = pysh.utils.resize_axis(arr0, Nnew, mode='zero', axis=0)
@@ -46,7 +46,23 @@ def test_resize_axis(Nitems, Nnew):
         assert (arr0[:limit] == arr1[:limit]).all()
         assert (arr0[-limit:] == arr1[-limit:]).all()
 
-    # TODO Need to add a check of arr3 (that the data ends up in the middle, as expected)
+    diff = Nnew - Nitems
+    if diff < 0:
+        trunced = arr0.copy().tolist()
+        for ii in range(-diff):
+            if ii % 2 == 1:
+                del trunced[0]
+            else:
+                del trunced[-1]
+        assert trunced == arr3.tolist()
+    else:
+        padded = arr3.copy().tolist()
+        for ii in range(diff):
+            if ii % 2 == 1:
+                del padded[0]
+            else:
+                del padded[-1]
+        assert padded == arr0.tolist()
 
     # Now check that the sizes are correct and the original data is kept
     # in the right order with zero-padding.
