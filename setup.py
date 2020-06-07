@@ -8,6 +8,7 @@ setup_args = {
     'name': 'pyspherical',
     'author': 'Adam E. Lanman',
     'url': 'https://github.com/aelanman/pyspherical',
+    'download_url': 'https://github.com/aelanman/pyspherical/archive/v0.0.1.tar.gz',
     'license': 'MIT',
     'description': '',
     'long_description': readme,
