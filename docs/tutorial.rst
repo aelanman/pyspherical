@@ -10,8 +10,8 @@ Sampling
 The function ``get_grid_sampling`` can be used to get a uniform grid sampling in Latitude/Longitude.
 
 ::
-    >>> from pyspherical import get_grid_sampling
 
+    >>> from pyspherical import get_grid_sampling
     # Given lmax, this returns lmax samples in theta and (2 * lmax - 1) samples in phi.
     # This is the default sampling of the McEwen + Wiaux paper (MW).
     >>> lmax = 10
@@ -32,12 +32,14 @@ The transformations and function evaluations all take advantage of a cached Delt
 values of the Wigner-d (little-d) function at an angle of π/2.
 
 ::
+
     >>> from pyspherical.wigner import DeltaMatrix
     >>> dmat = DeltaMatrix(lmax=5)
     # Elements (el, m1, m2) of the delta matrix can be accessed by index:
     #   dmat[el, m1, m2]
     >>> dmat[2, -1, 1]
     0.5
+
     # Data are only saved for 0 <= m1 < m2. Additional entries are given by symmetry relations.
     # Slicing is not yet available.
     # The DeltaMatrix can also be initialized with an lmin value:
@@ -52,9 +54,11 @@ Evaluation
 Functions for directly evaluating the spin-weighted spherical harmonics and Wigner-d functions are provided at the top level of the module.
 
 ::
+
     >>> from pyspherical import spin_spherical_harmonic, wigner_d
     >>> from pyspherical.wigner import DeltaMatrix
     >>> import numpy as np
+
     >>> phi, theta = 0, np.pi/2
     >>> el = 5
     >>> em = 4
@@ -69,6 +73,7 @@ Functions for directly evaluating the spin-weighted spherical harmonics and Wign
     >>> dmat = DeltaMatrix(lmax=6)
     >>> dmat[el, m1, m2]
     -0.2025231
+
     # By default, all functions and DeltaMatrices are evaluated to single precision.
     # Double precision can be used by setting the keyword double_prec=True.
 
@@ -79,10 +84,10 @@ Transforms
 The functions ``forward_transform`` and ``inverse_transform`` perform the discrete transforms from a set of samples on a sphere to a set of harmonic components, and back, respectively.
 
 ::
+
     >>> from pyspherical import forward_transform, inverse_transform, get_grid_sampling, spin_spherical_harmonic
     >>> from pyspherical.utils import unravel_lm, ravel_lm
     >>> import numpy as np
-
     >>> lmax = 20   # Maximum multipole moment.
     >>> theta, phi = get_grid_sampling(lmax)
     >>> gtheta, gphi = np.meshgrid(theta, phi)
@@ -92,6 +97,7 @@ The functions ``forward_transform`` and ``inverse_transform`` perform the discre
     >>> dat = spin_spherical_harmonic(1, 2, 0, gtheta, gphi)
 
     # ------- FORWARD -------
+
     >>> flm = forward_transform(dat, phi, theta, lmax, spin=1)
 
     # The transformations can be run with either:
@@ -108,13 +114,12 @@ The functions ``forward_transform`` and ``inverse_transform`` perform the discre
     # ind = unravel_lm(l, m)
 
     >>> peak_ind = np.argmax(flm.real)
-    >>> print(ravel_lm(peak_ind))
+    >>> print(ravel_lm(peak_ind))   # Matches the position of the peak inserted.
     (2, 0)
-    # Matches the amplitude of the peak inserted.
+
     # (See scripts/example_1.py for a more complete example).
 
     # ------- INVERSE -------
-    # Now the inverse transform:
     >>> dat2 = inverse_transform(flm, phi, theta, lmax, spin=1)
     >>> np.allclose(dat, dat2)
     True
@@ -128,9 +133,9 @@ A DeltaMatrix instance is saved when transform or evaluation methods are run. Th
 The cached matrix is carefully controlled to respect a global memory limit. Several utility functions are offered to inspect this cached DeltaMatrix, delete it, and view/change the cache settings.
 
 ::
+
     >>> from pyspherical import spin_spherical_harmonic
     >>> from pyspherical import get_cache_details, set_cache_mem_limit, get_cached_dmat, clear_cached_dmat
-
     >>> lmax = 30
 
     # Running a function, such as spin_spherical_harmonic, will initialize the cached DeltaMatrix.
