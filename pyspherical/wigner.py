@@ -357,7 +357,7 @@ class HarmonicFunction:
                    * dmats[1:], axis=-1)
             + dmats[0]
         )
-        if val.size == 1:
+        if val.size <= 1:
             return complex(val)
         return val.squeeze()
 

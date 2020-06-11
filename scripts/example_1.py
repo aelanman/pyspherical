@@ -35,7 +35,7 @@ for ii in range(Npeaks):
     em = peak_ems[ii]
     el = peak_els[ii]
     dat += peak_amps[ii]\
-        * pysh.spin_spherical_harmonic(el, em, spin, gtheta, gphi, lmax=lmax)
+        * pysh.spin_spherical_harmonic(spin, el, em, gtheta, gphi, lmax=lmax)
 
 # Perform forward transform from data to harmonic components.
 
