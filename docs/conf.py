@@ -46,8 +46,6 @@ mathjax_config = {
 
 mathjax_path = 'http://cdn.mathjax.org/mathjax/latest/MathJax.js'
 
-# source_suffix = '.rst'
-source_suffix = ['.rst', '.md']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

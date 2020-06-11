@@ -1,0 +1,9 @@
+formats:
+    - none
+conda:
+    file: ci/rtd_env.yml
+python:
+  version: 3.7
+  install:
+    - method: pip
+      path: .

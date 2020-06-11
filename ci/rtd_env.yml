@@ -1,0 +1,6 @@
+# conda environment specification for Read the Docs
+name: rtd
+dependencies:
+  - python=3.8
+  - pip:
+    - m2r
