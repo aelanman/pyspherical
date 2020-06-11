@@ -4,22 +4,24 @@
 ![](https://github.com/aelanman/pyspherical/workflows/Tests/badge.svg?branch=master)
 ![codecov](https://codecov.io/gh/aelanman/pyspherical/branch/master/graph/badge.svg)
 
-An implementation and development on the fast spin-weighted spherical harmonic transform methods of McEwan and Wiaux (2011) [1], using
+An implementation of and development on the fast spin-weighted spherical harmonic transform methods of McEwan and Wiaux (2011) [1], using
 the recursion relations of Trapani and Navaza (2006) [2] to calculate Wigner-d functions. Transforms are
 supported for any spherical sampling pattern with equally-spaced samples of azimuth at each latitude (iso-latitude sampling).
 Additional functions are provided to evaluate spin-weighted spherical harmonics at arbitrary positions.
 
-These methods are implemented entirely in Python, taking advantage of numba jit compilation and numpy vector operations
+These methods are written entirely in Python, taking advantage of numba jit compilation and numpy vector operations
 for speed.
 
 ## Dependencies
 
-#### Required
+Required:
+
 * `numpy`
 * `numba`
 * `scipy`
 
-#### Optionally, for tests
+Optional:
+
 * `sympy`
 * `pytest`
 
