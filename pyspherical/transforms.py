@@ -210,10 +210,6 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
     -------
     flm: ndarray of complex
         Spherical-harmonic components, shape ((lmax-1)**2)
-        Ordered as:
-            el  = 0  1  1  1  2  2  2  2  2
-            em  = 0 -1  0  1 -2 -1  0  1  2
-            ind = 0  1  2  3  4  5  6  7  8
         Modes with el < spin will be set to zero.
     """
 
@@ -403,7 +399,7 @@ def inverse_transform(flm, phis=None, thetas=None, lmax=None, lmin=0, spin=0, Nt
 
     This function cannot be used to evaluate the spherical harmonic components to arbitrary
     positions on the sphere. For that, the function
-    :meth:`HarmonicFunction.spin_spherical_harmonic()` is provided.
+    :meth:`spin_spherical_harmonic()` is provided.
     """
     if lmax is None:
         lmax = int(np.sqrt(flm.size))

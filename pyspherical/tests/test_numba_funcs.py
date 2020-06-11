@@ -18,15 +18,15 @@ def test_delta_eval():
     # Check that values are equivalent for single and double.
 
     lmax = 20
-    arr0 = np.empty(pysh.DeltaMatrix.estimate_array_size(0, lmax), dtype=np.float32)
-    arr1 = np.empty(pysh.DeltaMatrix.estimate_array_size(0, lmax), dtype=np.float64)
+    arr0 = np.empty(pysh.DeltaMatrix.array_size(0, lmax), dtype=np.float32)
+    arr1 = np.empty(pysh.DeltaMatrix.array_size(0, lmax), dtype=np.float64)
     pysh.wigner._dmat_eval(lmax, arr0, lmin=0, lstart=None, arr0=None)
 
     pysh.wigner._dmat_eval(lmax, arr1, lmin=0, lstart=None, arr0=None)
 
     # Starting from an lmin
     lmin = 5
-    arr2 = np.empty(pysh.DeltaMatrix.estimate_array_size(lmin, lmax), dtype=np.float32)
+    arr2 = np.empty(pysh.DeltaMatrix.array_size(lmin, lmax), dtype=np.float32)
     base = pysh.utils.tri_base(lmin)
     bsize = pysh.utils.el_block_size(lmin)
     pysh.wigner._dmat_eval(lmax, arr2, lmin=lmin, lstart=lmin, arr0=arr1[base:base + bsize])
@@ -43,7 +43,7 @@ def test_indexing_and_sizes(lmin):
     for el in range(lmin, lmax + 1):
         assert pysh.utils.tri_base(el) == tot
         tot += pysh.utils.el_block_size(el)
-    assert pysh.DeltaMatrix.estimate_array_size(lmin, lmax) == tot - pysh.utils.tri_base(lmin)
+    assert pysh.DeltaMatrix.array_size(lmin, lmax) == tot - pysh.utils.tri_base(lmin)
 
     # Error for invalid index
     with pytest.raises(ValueError, match="Invalid indices"):
@@ -56,7 +56,7 @@ def test_indexing_and_sizes(lmin):
             for m2 in range(0, m1 + 1):
                 inds.append(pysh.utils.tri_ravel(el, m1, m2))
 
-    expected_size = pysh.DeltaMatrix.estimate_array_size(lmin, lmax)
+    expected_size = pysh.DeltaMatrix.array_size(lmin, lmax)
     assert np.all(sorted(inds) == np.arange(expected_size) + pysh.utils.tri_base(lmin))
 
 
@@ -72,7 +72,7 @@ def test_ravel_lm():
 def test_access_element():
     # Results of _access_element respect the same symmetries as checked in test_wigner.py
     lmax = 20
-    arr0 = np.empty(pysh.DeltaMatrix.estimate_array_size(0, lmax), dtype=np.float32)
+    arr0 = np.empty(pysh.DeltaMatrix.array_size(0, lmax), dtype=np.float32)
     arr2 = np.ones_like(arr0) * np.nan
     pysh.wigner._dmat_eval(lmax, arr0, lmin=0, lstart=None, arr0=None)
 

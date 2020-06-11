@@ -1,3 +1,5 @@
+exclude: '(^docs/conf.py|^docs/make_index.py)'
+
 repos:
     - repo: git://github.com/pre-commit/pre-commit-hooks
       rev: v2.5.0

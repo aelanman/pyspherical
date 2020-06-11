@@ -123,7 +123,7 @@ class DeltaMatrix:
     """
 
     def __init__(self, lmax, lmin=0, dmat=None, dtype=np.float32):
-        arrsize = self.estimate_array_size(lmin, lmax)
+        arrsize = self.array_size(lmin, lmax)
         self._arr = np.empty(arrsize, dtype=dtype)
         self.dtype = dtype
         self.lmax = lmax
@@ -154,7 +154,7 @@ class DeltaMatrix:
         _dmat_eval(self.lmax, self._arr, lstart=lstart, arr0=arr0, lmin=self.lmin)
 
     @classmethod
-    def estimate_array_size(cls, lmin, lmax):
+    def array_size(cls, lmin, lmax):
         """Estimate size of the flattened array needed to store Delta_lmm values."""
         return (1 + lmax - lmin) * (6 + 5 * lmax + lmax**2 + 4
                                     * lmin + lmax * lmin + lmin**2) // 6
@@ -165,12 +165,12 @@ class DeltaMatrix:
         # Only one input may be None at a time!
 
         if arrsize is None:
-            arrsize = cls.estimate_array_size(lmin, lmax)
+            arrsize = cls.array_size(lmin, lmax)
 
         if lmax is None:
             lmax = lmin
             while True:
-                s = cls.estimate_array_size(lmin, lmax)
+                s = cls.array_size(lmin, lmax)
                 if s > arrsize and strict:
                     raise ValueError("Invalid combination.")
                 if s > arrsize:
@@ -183,7 +183,7 @@ class DeltaMatrix:
         if lmin is None:
             lmin = lmax
             while True:
-                s = cls.estimate_array_size(lmin, lmax)
+                s = cls.array_size(lmin, lmax)
                 if s > arrsize and strict:
                     raise ValueError("Invalid combination.")
                 if s == arrsize:
@@ -192,7 +192,7 @@ class DeltaMatrix:
                     lmin += 1
                     break
                 lmin -= 1
-        arrsize = cls.estimate_array_size(lmin, lmax)
+        arrsize = cls.array_size(lmin, lmax)
         return (lmin, lmax, arrsize)
 
     def __getitem__(self, index):
@@ -257,7 +257,7 @@ class HarmonicFunction:
                              " Clear it using clear_cached_dmat() first.")
         cls.cache_mem_limit = newlim
         max_block_size = cls._est_arrsize_limit(cls.cache_mem_limit)
-        cls.maximum_el = np.floor((np.sqrt(1 + 8 * max_block_size) - 3) / 2)
+        cls.maximum_el = int(np.floor((np.sqrt(1 + 8 * max_block_size) - 3) / 2))
 
     @classmethod
     def get_cache_details(cls):
@@ -301,7 +301,7 @@ class HarmonicFunction:
             double = False
         mem_lim = getattr(cls, 'cache_mem_limit')
         max_arrsize = cls._est_arrsize_limit(mem_lim, double=double)
-        req_arrsize = DeltaMatrix.estimate_array_size(lmin, lmax)
+        req_arrsize = DeltaMatrix.array_size(lmin, lmax)
         limited = req_arrsize > max_arrsize
         if limited and high:
             lmin, _, _ = DeltaMatrix._get_array_params(lmax=lmax, arrsize=max_arrsize)
@@ -357,7 +357,7 @@ class HarmonicFunction:
                    * dmats[1:], axis=-1)
             + dmats[0]
         )
-        if val.size == 1:
+        if val.size <= 1:
             return complex(val)
         return val.squeeze()
 
