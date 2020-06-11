@@ -2,7 +2,7 @@
 
 
 ![](https://github.com/aelanman/pyspherical/workflows/Tests/badge.svg?branch=master)
-[![codecov](https://codecov.io/gh/aelanman/pyspherical/branch/master/graph/badge.svg)](https://codecov.io/gh/aelanman/pyspherical)
+![codecov](https://codecov.io/gh/aelanman/pyspherical/branch/master/graph/badge.svg)
 
 An implementation and development on the fast spin-weighted spherical harmonic transform methods of McEwan and Wiaux (2011) [1], using
 the recursion relations of Trapani and Navaza (2006) [2] to calculate Wigner-d functions. Transforms are
