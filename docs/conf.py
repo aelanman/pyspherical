@@ -36,13 +36,14 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
-    'm2r',
 ]
+
 
 mathjax_config = {
     'extensions': ['tex2jax.js'],
     'jax': ['input/TeX', 'output/HTML-CSS'],
 }
+
 
 mathjax_path = 'http://cdn.mathjax.org/mathjax/latest/MathJax.js'
 
@@ -55,6 +56,16 @@ templates_path = ['_templates']
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
+import sys
+import os
+
+readme_file = os.path.join(os.path.abspath('../'), 'README.md')
+index_file = os.path.join(os.path.abspath('../docs'), 'index.rst')
+
+def build_custom_docs(app):
+    sys.path.append(os.getcwd())
+    import make_index
+    make_index.write_index_rst(readme_file=readme_file, write_file=index_file)
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -67,3 +78,6 @@ html_theme = 'alabaster'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+def setup(app):
+    app.connect('builder-inited', build_custom_docs)

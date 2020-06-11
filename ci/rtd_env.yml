@@ -1,6 +1,5 @@
 # conda environment specification for Read the Docs
 name: rtd
 dependencies:
-  - python=3.8
-  - pip:
-    - m2r
+  - python=3.7
+  - conda-forge::pypandoc
