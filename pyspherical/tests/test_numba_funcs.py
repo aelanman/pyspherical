@@ -73,13 +73,9 @@ def test_access_element():
     # Results of _access_element respect the same symmetries as checked in test_wigner.py
     lmax = 20
     arr0 = np.empty(pysh.DeltaMatrix.array_size(0, lmax), dtype=np.float32)
-    arr2 = np.ones_like(arr0) * np.nan
     pysh.wigner._dmat_eval(lmax, arr0, lmin=0, lstart=None, arr0=None)
 
     _acc = pysh.wigner._access_element
-
-    with pytest.raises(ValueError, match="Invalid entry in dmat"):
-        _acc(2, 0, 0, arr2)
 
     for ll in range(lmax):
         for m in range(-ll, ll + 1):
