@@ -35,6 +35,7 @@ Further Documentation
 .. toctree::
    :maxdepth: 2
 
+   Main <index>
    tutorial
    functions
             """
