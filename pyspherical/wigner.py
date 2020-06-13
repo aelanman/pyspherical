@@ -2,7 +2,7 @@
 
 import numpy as np
 import warnings
-from numba import jit
+from numba import njit, prange
 from scipy.special import binom, factorial
 
 from .utils import tri_ravel, tri_base, el_block_size
@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 
-@jit(nopython=True)
+@njit(fastmath=True)
 def _dmat_eval(lmax, arr, lmin=0, lstart=None, arr0=None):
     # Evaluate the values of the Wigner-d matrices at pi/2.
     # arr = linear array, modified in-place
@@ -64,7 +64,7 @@ def _dmat_eval(lmax, arr, lmin=0, lstart=None, arr0=None):
                 arr[tri_ravel(el, m1, m2) - offset] = fac1 - fac2
 
 
-@jit(nopython=True)
+@njit(fastmath=True)
 def _access_element(l, m1, m2, arr, lmin=0):
     # Access stored elements, or use
     # symmetry relations for non-stored elements.
@@ -90,8 +90,6 @@ def _access_element(l, m1, m2, arr, lmin=0):
         m1, m2 = m2, m1
 
     val = fac * arr[tri_ravel(l, m1, m2) - tri_ravel(lmin, lmin, 0)]
-    if np.isnan(val):
-        raise ValueError("Invalid entry in dmat")
     return val
 
 
@@ -217,15 +215,15 @@ class DeltaMatrix:
         return _access_element(l, m1, m2, self._arr, self.lmin)
 
 
-@jit(nopython=True)
+@njit(parallel=False, fastmath=True)
 def _get_matrix_elements(el, m1, m2, arr, outarr):
     """
     Get an array of Delta[el, mp, m1] * Delta[el, mp, m2].
 
     Results are written into outarr
     """
-    for mi, mp in enumerate(range(0, el + 1)):
-        outarr[mi] = _access_element(
+    for mp in prange(0, el + 1):
+        outarr[mp] = _access_element(
             el, mp, m1, arr) * _access_element(el, mp, m2, arr)
 
 

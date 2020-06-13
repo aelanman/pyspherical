@@ -11,7 +11,7 @@ Non-uniform sampling in theta will be supported in the future.
 """
 
 import numpy as np
-from numba import jit
+from numba import njit, prange
 
 from .wigner import HarmonicFunction, _access_element
 from .utils import resize_axis, unravel_lm, get_grid_sampling
@@ -64,7 +64,7 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
         # quantities if they have been FFT-shifted, such that the 0 mode
         # is in the center of the array.
         return np.convolve(a, weights, mode='valid')
-
+    # TODO -- try scipy.ndimage.convolve1d with axis, instead of apply_along_axi
     Gmm = np.apply_along_axis(do_conv, 1, padFmm) * 2 * np.pi
 
     # Unshift the m' axis
@@ -73,13 +73,13 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
     return Gmm
 
 
-@jit(nopython=True)
+@njit(parallel=True)
 def _jit_dmm2flm(dmm, cur_lmax, spin, dmatarr, lmin, flm, out_lmin):
     # Faster evaluation.
     # flm = output array, written to directly.
 
     loopmin = max(out_lmin, spin, lmin)
-    for el in range(loopmin, cur_lmax):
+    for el in prange(loopmin, cur_lmax):
         prefac = np.sqrt((2 * el + 1) / (4 * np.pi))
         for m in range(-el, el + 1):
             ind = unravel_lm(el, m) - out_lmin**2
@@ -241,7 +241,7 @@ def forward_transform(dat, phis, thetas, lmax, lmin=0, spin=0):
 # Inverse transform
 # -----------------
 
-@jit(nopython=True)
+@njit(parallel=True)
 def _jit_flm2fmm(flm, cur_lmax, spin, dmatarr, lmin, fmm, in_lmin):
     loopmin = max(lmin, in_lmin, spin)
     for el in range(loopmin, cur_lmax):
@@ -252,7 +252,7 @@ def _jit_flm2fmm(flm, cur_lmax, spin, dmatarr, lmin, fmm, in_lmin):
             fmm[m, 0] += prefac * prefac2 * _access_element(el, 0, m, dmatarr, lmin=lmin) \
                 * _access_element(el, 0, -spin, dmatarr, lmin=lmin)
             negfac = (-1)**(m + spin)
-            for mp in range(1, el + 1):
+            for mp in prange(1, el + 1):
                 val = prefac * prefac2 * _access_element(el, m, mp, dmatarr, lmin=lmin) \
                     * _access_element(el, -spin, mp, dmatarr, lmin=lmin)
                 fmm[m, mp] += val
