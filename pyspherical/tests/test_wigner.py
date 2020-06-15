@@ -55,6 +55,24 @@ def test_transform_eval_compare(mw_sampling, slm):
     assert pysh.get_cached_dmat().lmax == lmax
 
 
+@pytest.mark.parametrize('slm', ((spin, el, em)
+                                 for spin in range(3)
+                                 for el in range(spin, 5)
+                                 for em in range(-el, el + 1)
+                                 )
+                         )
+def test_eval_with_floats(slm):
+    spin, el, em = slm
+    theta = np.linspace(0.1, np.pi, 5)
+    phi = np.linspace(0, 2 * np.pi, 5)
+    lmax = 5
+    for th in theta:
+        for ph in phi:
+            v1 = pysh.wigner.spin_spharm_goldberg(spin, el, em, th, ph)
+            v2 = pysh.wigner.spin_spherical_harmonic(spin, el, em, th, ph, lmax=lmax)
+            assert np.isclose(v1, v2, atol=1e-5)
+
+
 def test_wigner_symm():
     # Test symmetries of the Wigner-d function.
     # Appendix of Prezeau and Reinecke (2010)

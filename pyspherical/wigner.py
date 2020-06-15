@@ -588,12 +588,14 @@ def spin_spharm_goldberg(spin, el, em, theta, phi):
 
         res = term0 * term1 * term2
 
-    if np.isscalar(res) and (np.isclose((theta / 2) % np.pi, 0)):
-        res = 0.0
-    else:
-        res[np.isclose((theta / 2) % np.pi, 0)] = 0.0    # Singularities
+    singular = np.isclose((theta / 2) % np.pi, 0)
+    if singular.any():
+        if np.isscalar(res):
+            res = 0.0
+        else:
+            res[np.isclose((theta / 2) % np.pi, 0)] = 0.0    # Singularities
 
-    if res.size == 1:
+    if np.isscalar(res):
         return complex(res)
 
     return res
