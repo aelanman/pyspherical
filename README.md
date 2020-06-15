@@ -12,6 +12,8 @@ Additional functions are provided to evaluate spin-weighted spherical harmonics 
 These methods are written entirely in Python, taking advantage of numba jit compilation and numpy vector operations
 for speed.
 
+This README, a tutorial, and all function docstrings may be found on [ReadTheDocs](https://pyspherical.readthedocs.io).
+
 ## Dependencies
 
 Required:
