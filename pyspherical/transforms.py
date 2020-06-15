@@ -64,7 +64,6 @@ def _theta_fft(Gm_th, thetas, lmax, lmin=0, spin=0):
         # quantities if they have been FFT-shifted, such that the 0 mode
         # is in the center of the array.
         return np.convolve(a, weights, mode='valid')
-    # TODO -- try scipy.ndimage.convolve1d with axis, instead of apply_along_axi
     Gmm = np.apply_along_axis(do_conv, 1, padFmm) * 2 * np.pi
 
     # Unshift the m' axis
