@@ -73,7 +73,8 @@ def test_eval_with_floats(slm):
             assert np.isclose(v1, v2, atol=1e-5)
 
 
-def test_wigner_symm():
+@pytest.mark.parametrize('double', [False, True])
+def test_wigner_symm(double):
     # Test symmetries of the Wigner-d function.
     # Appendix of Prezeau and Reinecke (2010)
 
@@ -84,7 +85,7 @@ def test_wigner_symm():
     lmax = 15
 
     def dl(el, m1, m2, theta):
-        return pysh.wigner_d(el, m1, m2, theta, lmax=lmax)
+        return pysh.wigner_d(el, m1, m2, theta, lmax=lmax, double_prec=double)
 
     Nth = 5
     for th in np.linspace(0, np.pi, Nth):
