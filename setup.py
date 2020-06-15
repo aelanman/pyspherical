@@ -15,7 +15,7 @@ setup_args = {
     'long_description_content_type': 'text/markdown',
     'package_dir': {'pyspherical': 'pyspherical'},
     'packages': ['pyspherical', 'pyspherical.tests'],
-    'version': '0.0.1',
+    'version': '0.0.2',
     'include_package_data': True,
     'test_suite': 'pytest',
     'tests_require': ['pytest', 'sympy'],
