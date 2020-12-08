@@ -227,6 +227,19 @@ def _get_matrix_elements(el, m1, m2, arr, outarr):
             el, mp, m1, arr) * _access_element(el, mp, m2, arr)
 
 
+@njit(fastmath=True)
+def _outerprod_wigner(el, m1, m2, dmats, theta, outarr):
+    """
+    Performs a sum in wigner_d with speed while avoiding a bottleneck.
+
+    Results are written intto outarr, which must have the same
+    shape as theta.
+    """
+    for mp in prange(1, el + 1):
+        exp_fac = np.exp(1j * mp * theta)
+        outarr[:] += (exp_fac + (-1.)**(m1 + m2 - 2 * el) / exp_fac) * dmats[mp]
+
+
 class HarmonicFunction:
     """
     Methods for calculating Wigner-d functions and spin-weighted spherical harmonics.
@@ -345,16 +358,14 @@ class HarmonicFunction:
                 dtype = np.float32
         cls._set_wigner(lmin, lmax, dtype=dtype)
 
-        mp = np.arange(1, el + 1)
-        exp_fac = np.exp(1j * mp[None, :] * theta[..., None])
         dmats = np.empty(el + 1, dtype=float)
         _get_matrix_elements(el, m1, m2, cls.current_dmat._arr, dmats)
 
-        val = (1j) ** (m2 - m1) * (
-            np.sum((exp_fac + (-1.)**(m1 + m2 - 2 * el) / exp_fac)
-                   * dmats[1:], axis=-1)
-            + dmats[0]
-        )
+        product_part = np.zeros_like(theta, dtype=np.complex128) + dmats[0]
+        _outerprod_wigner(el, m1, m2, dmats, theta, product_part)
+
+        val = (1j) ** (m2 - m1) * product_part
+
         if val.size <= 1:
             return complex(val)
         return val.squeeze()
